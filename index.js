@@ -11,8 +11,9 @@ app.post('/api/pedido', async (req, res) => {
     const result = await blingService.criarPedido(pedido);
     res.status(201).json({ success: true, result });
   } catch (error) {
-    console.error('Erro ao criar pedido:', error.response?.data || error.message);
-    res.status(500).json({ success: false, error: error.response?.data || error.message });
+    const errorData = error.response?.data || error.message;
+    console.error('Erro ao criar pedido:', JSON.stringify(errorData, null, 2));
+    res.status(500).json({ success: false, error: errorData });
   }
 });
 
