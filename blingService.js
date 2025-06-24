@@ -20,8 +20,8 @@ async function renovarAccessToken() {
 
     accessToken = response.data.access_token;
     console.log('[BLING] Novo access_token gerado com sucesso');
-
     return accessToken;
+
   } catch (error) {
     console.error('[BLING] Erro ao renovar access_token:', error.response?.data || error.message);
     throw error;
@@ -37,9 +37,10 @@ async function criarPedido(dados) {
     data: dados.data || new Date().toISOString().split('T')[0],
     dataPrevista: dados.dataPrevista || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     tipo: "VENDA",
-    situacao: {
-      id: dados.idSituacao || 1
-    },
+
+    // ✅ Situação como string conforme exigido pela API
+    situacao: dados.situacao || "Em aberto",
+
     contato: {
       id: dados.idCliente || process.env.CLIENTE_ID
     },
@@ -66,7 +67,6 @@ async function criarPedido(dados) {
     observacoesInternas: dados.observacoesInternas || ""
   };
 
-  // ✅ Log para depuração
   console.log('[DEBUG] Payload final enviado ao Bling:');
   console.dir(payload, { depth: null });
 
@@ -101,5 +101,3 @@ async function criarPedido(dados) {
 }
 
 module.exports = { criarPedido };
-
-
