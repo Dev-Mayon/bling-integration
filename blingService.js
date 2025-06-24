@@ -41,7 +41,7 @@ async function criarPedido(dados) {
           codigo: dados.codigoProduto || process.env.PRODUTO_CODIGO
         },
         quantidade: dados.quantidade || 1,
-        valor: dados.valor || 100.00
+        valor: (dados.valor / dados.quantidade) || 100.00
       }
     ],
     parcelas: [
