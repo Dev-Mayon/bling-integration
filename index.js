@@ -25,7 +25,7 @@ app.post('/notificacao', async (req, res) => {
     const { id } = req.body;
 
     // 🔍 Busca os dados reais do pagamento na API do Mercado Pago
-    const pagamento = await mercadoPagoService.consultarPagamento(id);
+    const dadosPagamento = await mercadoPagoService.buscarPagamento(id);
 
     const pedido = {
       idCliente: process.env.CLIENTE_ID,
