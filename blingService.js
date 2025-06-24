@@ -6,15 +6,14 @@ const refreshToken = process.env.BLING_REFRESH_TOKEN;
 
 async function renovarAccessToken() {
   try {
-    const response = await axios.post('https://api.bling.com.br/oauth/token', null, {
-      params: {
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: process.env.CLIENT_ID,
-        client_secret: process.env.CLIENT_SECRET,
-      },
+    const response = await axios.post('https://www.bling.com.br/Api/v3/oauth/token', {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: process.env.CLIENT_ID,
+      client_secret: process.env.CLIENT_SECRET
+    }, {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/json'
       }
     });
 
@@ -31,7 +30,7 @@ async function renovarAccessToken() {
 async function criarPedido(dados) {
   const valorUnitario = (dados.valor / (dados.quantidade || 1)) || 100.00;
   const valorTotalVenda = dados.valor || 100.00;
-  const numeroGerado = `BB${Date.now()}`; // mais seguro que random()
+  const numeroGerado = `BB${Date.now()}`;
 
   const payload = {
     numero: dados.numero || numeroGerado,
@@ -82,7 +81,7 @@ async function criarPedido(dados) {
   } catch (error) {
     if (error.response?.status === 401) {
       console.log('[BLING] Token expirado. Renovando...');
-      await renovarAccessToken();
+      accessToken = await renovarAccessToken(); // ⚠️ corrigido aqui também
 
       const retry = await axios.post('https://api.bling.com.br/v3/pedidos/vendas', payload, {
         headers: {
@@ -100,5 +99,6 @@ async function criarPedido(dados) {
 }
 
 module.exports = { criarPedido };
+
 
 
