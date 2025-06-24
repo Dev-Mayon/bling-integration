@@ -2,10 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 const blingService = require('./blingService');
+const mercadoPagoService = require('./mercadoPagoService'); // ✅ importação do novo serviço
 
 app.use(express.json());
 
-// Rota original já funcional
+// ROTA 1 — Criação manual via POST (continua funcionando normalmente)
 app.post('/api/pedido', async (req, res) => {
   try {
     const pedido = req.body;
@@ -18,23 +19,22 @@ app.post('/api/pedido', async (req, res) => {
   }
 });
 
-// ✅ NOVA ROTA PARA RECEBER NOTIFICAÇÕES DO MERCADO PAGO
+// ROTA 2 — Notificação automática do Mercado Pago (usando serviço externo)
 app.post('/notificacao', async (req, res) => {
   try {
-    // Simulação: extração dos dados recebidos do Mercado Pago
-    const notificacao = req.body;
+    const { id } = req.body;
 
-    console.log('[DEBUG] Notificação recebida:', notificacao);
+    // Busca os dados simulados (depois usaremos a API real)
+    const dadosPagamento = await mercadoPagoService.buscarPagamento(id);
 
-    // Exemplo genérico (ajustaremos depois com o real): transformar em dados do pedido
     const pedido = {
       idCliente: process.env.CLIENTE_ID,
       codigoProduto: process.env.PRODUTO_CODIGO,
-      quantidade: 1,
-      valor: notificacao.valor || 100,
+      quantidade: dadosPagamento.quantidade,
+      valor: dadosPagamento.valor,
       situacao: "Em aberto",
-      observacoes: `Pedido via webhook simulado`,
-      observacoesInternas: `MP Payment ID: ${notificacao.id}`
+      observacoes: `Pedido gerado automaticamente via webhook`,
+      observacoesInternas: `MP Payment ID: ${id}`
     };
 
     const result = await blingService.criarPedido(pedido);
@@ -50,5 +50,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
+
 
 
