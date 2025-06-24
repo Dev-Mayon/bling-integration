@@ -26,6 +26,18 @@ async function renovarAccessToken() {
 
     accessToken = response.data.access_token;
     console.log('[BLING] Novo access_token gerado com sucesso');
+
+    // Enviar tokens atualizados para o Make.com
+    try {
+      await axios.post('https://hook.us2.make.com/hce28beph3r90wvy9f1t0uai1pgf85', {
+        access_token: response.data.access_token,
+        refresh_token: response.data.refresh_token
+      });
+      console.log('[MAKE] Tokens enviados para o Make.com com sucesso');
+    } catch (makeError) {
+      console.error('[MAKE] Falha ao enviar tokens para o Make.com:', makeError.message);
+    }
+
     return accessToken;
 
   } catch (error) {
@@ -106,6 +118,7 @@ async function criarPedido(dados) {
 }
 
 module.exports = { criarPedido };
+
 
 
 
