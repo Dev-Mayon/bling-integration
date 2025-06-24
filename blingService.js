@@ -1,4 +1,5 @@
 const axios = require('axios');
+const qs = require('qs'); // necessário para formatar o corpo como x-www-form-urlencoded
 require('dotenv').config();
 
 let accessToken = process.env.BLING_ACCESS_TOKEN;
@@ -6,14 +7,19 @@ const refreshToken = process.env.BLING_REFRESH_TOKEN;
 
 async function renovarAccessToken() {
   try {
-    const response = await axios.post('https://www.bling.com.br/Api/v3/oauth/token', {
+    const clientId = process.env.CLIENT_ID;
+    const clientSecret = process.env.CLIENT_SECRET;
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+    const data = qs.stringify({
       grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-      client_id: process.env.CLIENT_ID,
-      client_secret: process.env.CLIENT_SECRET
-    }, {
+      refresh_token: refreshToken
+    });
+
+    const response = await axios.post('https://www.bling.com.br/Api/v3/oauth/token', data, {
       headers: {
-        'Content-Type': 'application/json'
+        'Authorization': `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
       }
     });
 
@@ -81,7 +87,7 @@ async function criarPedido(dados) {
   } catch (error) {
     if (error.response?.status === 401) {
       console.log('[BLING] Token expirado. Renovando...');
-      accessToken = await renovarAccessToken(); // ⚠️ corrigido aqui também
+      accessToken = await renovarAccessToken();
 
       const retry = await axios.post('https://api.bling.com.br/v3/pedidos/vendas', payload, {
         headers: {
