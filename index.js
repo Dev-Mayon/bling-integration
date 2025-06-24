@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 const blingService = require('./blingService');
-const mercadoPagoService = require('./mercadoPagoService'); // ✅ importação do novo serviço
+const mercadoPagoService = require('./mercadoPagoService'); // ✅ serviço Mercado Pago
 
 app.use(express.json());
 
@@ -19,22 +19,22 @@ app.post('/api/pedido', async (req, res) => {
   }
 });
 
-// ROTA 2 — Notificação automática do Mercado Pago (usando serviço externo)
+// ROTA 2 — Notificação do Mercado Pago (consulta dados reais do pagamento)
 app.post('/notificacao', async (req, res) => {
   try {
     const { id } = req.body;
 
-    // Busca os dados simulados (depois usaremos a API real)
-    const dadosPagamento = await mercadoPagoService.buscarPagamento(id);
+    // 🔍 Busca os dados reais do pagamento na API do Mercado Pago
+    const pagamento = await mercadoPagoService.consultarPagamento(id);
 
     const pedido = {
       idCliente: process.env.CLIENTE_ID,
       codigoProduto: process.env.PRODUTO_CODIGO,
-      quantidade: dadosPagamento.quantidade,
-      valor: dadosPagamento.valor,
-      situacao: "Em aberto",
-      observacoes: `Pedido gerado automaticamente via webhook`,
-      observacoesInternas: `MP Payment ID: ${id}`
+      quantidade: 1,
+      valor: pagamento.transaction_amount || 100,
+      situacao: pagamento.status === 'approved' ? 'Aprovado' : 'Em aberto',
+      observacoes: `Compra de ${pagamento.payer.email} via Mercado Pago`,
+      observacoesInternas: `MP Payment ID: ${pagamento.id}`
     };
 
     const result = await blingService.criarPedido(pedido);
