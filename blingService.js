@@ -3,12 +3,13 @@ const qs = require('qs'); // necessário para formatar o corpo como x-www-form-u
 require('dotenv').config();
 
 let accessToken = process.env.BLING_ACCESS_TOKEN;
-const refreshToken = process.env.BLING_REFRESH_TOKEN;
 
 async function renovarAccessToken() {
   try {
     const clientId = process.env.CLIENT_ID;
     const clientSecret = process.env.CLIENT_SECRET;
+    const refreshToken = process.env.BLING_REFRESH_TOKEN;
+
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
     const data = qs.stringify({
@@ -105,6 +106,7 @@ async function criarPedido(dados) {
 }
 
 module.exports = { criarPedido };
+
 
 
 
