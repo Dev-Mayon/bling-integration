@@ -24,17 +24,17 @@ app.post('/notificacao', async (req, res) => {
   try {
     const { id } = req.body;
 
-    // 🔍 Busca os dados reais do pagamento na API do Mercado Pago
+    // 🔍 Busca os dados reais do pagamento (simulado por enquanto)
     const dadosPagamento = await mercadoPagoService.buscarPagamento(id);
 
     const pedido = {
       idCliente: process.env.CLIENTE_ID,
       codigoProduto: process.env.PRODUTO_CODIGO,
-      quantidade: 1,
-      valor: pagamento.transaction_amount || 100,
-      situacao: pagamento.status === 'approved' ? 'Aprovado' : 'Em aberto',
-      observacoes: `Compra de ${pagamento.payer.email} via Mercado Pago`,
-      observacoesInternas: `MP Payment ID: ${pagamento.id}`
+      quantidade: dadosPagamento.quantidade || 1,
+      valor: dadosPagamento.valor || 100,
+      situacao: 'Em aberto',
+      observacoes: `Compra de ${dadosPagamento.nomeCliente} via Mercado Pago`,
+      observacoesInternas: `MP Payment ID: ${dadosPagamento.id}`
     };
 
     const result = await blingService.criarPedido(pedido);
