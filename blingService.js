@@ -31,7 +31,7 @@ async function renovarAccessToken() {
 async function criarPedido(dados) {
   const valorUnitario = (dados.valor / (dados.quantidade || 1)) || 100.00;
   const valorTotalVenda = dados.valor || 100.00;
-  const numeroGerado = `BB${Math.floor(100000 + Math.random() * 899999)}`;
+  const numeroGerado = `BB${Date.now()}`; // mais seguro que random()
 
   const payload = {
     numero: dados.numero || numeroGerado,
@@ -62,8 +62,8 @@ async function criarPedido(dados) {
     meioPagamento: {
       id: dados.idMeioPagamento || 1
     },
-    observacoes: `${dados.observacoes || "Pedido via API"} - ${Date.now()}`,
-    observacoesInternas: dados.observacoesInternas || ""
+    observacoes: dados.observacoes || `Pedido automático - ${new Date().toLocaleString()}`,
+    observacoesInternas: dados.observacoesInternas || `Ref: ${numeroGerado}`
   };
 
   console.log('[DEBUG] Payload final enviado ao Bling:');
@@ -100,4 +100,5 @@ async function criarPedido(dados) {
 }
 
 module.exports = { criarPedido };
+
 
