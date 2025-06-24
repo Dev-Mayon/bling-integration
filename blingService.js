@@ -31,14 +31,13 @@ async function renovarAccessToken() {
 async function criarPedido(dados) {
   const valorUnitario = (dados.valor / (dados.quantidade || 1)) || 100.00;
   const valorTotalVenda = dados.valor || 100.00;
+  const numeroGerado = `BB${Math.floor(100000 + Math.random() * 899999)}`;
 
   const payload = {
-    numero: dados.numero || 'BB0002',
+    numero: dados.numero || numeroGerado,
     data: dados.data || new Date().toISOString().split('T')[0],
     dataPrevista: dados.dataPrevista || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     tipo: "VENDA",
-
-    // ✅ Situação como string conforme exigido pela API
     situacao: dados.situacao || "Em aberto",
 
     contato: {
@@ -63,7 +62,7 @@ async function criarPedido(dados) {
     meioPagamento: {
       id: dados.idMeioPagamento || 1
     },
-    observacoes: dados.observacoes || "",
+    observacoes: `${dados.observacoes || "Pedido via API"} - ${Date.now()}`,
     observacoesInternas: dados.observacoesInternas || ""
   };
 
@@ -101,3 +100,4 @@ async function criarPedido(dados) {
 }
 
 module.exports = { criarPedido };
+
