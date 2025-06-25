@@ -1,4 +1,4 @@
-const { renovarAccessToken } = require('./blingService');
+/*const { renovarAccessToken } = require('./blingService');
 const axios = require('axios');
 require('dotenv').config();
 
@@ -14,4 +14,4 @@ renovarAccessToken().then(token => {
 }).catch(error => {
   console.error('❌ Erro ao renovar token:', error.message);
 });
-
+*/

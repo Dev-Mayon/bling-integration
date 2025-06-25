@@ -45,29 +45,12 @@ app.post('/notificacao', async (req, res) => {
   }
 });
 
-// ROTA 3 — Consulta os tokens atuais (útil para testes)
-app.get('/tokens', (req, res) => {
-  res.json({
-    access_token: blingService.accessToken,
-    refresh_token: blingService.refreshToken
-  });
-});
-
-// 🔁 Agendamento da renovação automática do token Bling
-console.log('[SCHEDULER] Renovação automática iniciada...');
-blingService.renovarAccessToken(); // Executa ao iniciar
-
-const CINCO_HORAS_MS = 5 * 60 * 60 * 1000;
-setInterval(() => {
-  console.log('[SCHEDULER] Executando renovação programada...');
-  blingService.renovarAccessToken();
-}, CINCO_HORAS_MS);
-
 // Inicialização do servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
+
 
 
 

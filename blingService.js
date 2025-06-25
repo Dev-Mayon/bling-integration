@@ -1,8 +1,7 @@
 const axios = require('axios');
-const qs = require('qs');
 require('dotenv').config();
 
-let accessToken = null; // agora inicializa vazio
+let accessToken = null;
 
 // ✅ Carrega o token mais recente do Make
 async function carregarTokenDoMake() {
@@ -17,54 +16,7 @@ async function carregarTokenDoMake() {
   }
 }
 
-async function renovarAccessToken() {
-  try {
-    const clientId = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
-    const refreshToken = process.env.BLING_REFRESH_TOKEN;
-
-    console.log('[DEBUG] CLIENT_ID:', `"${clientId}"`);
-    console.log('[DEBUG] CLIENT_SECRET:', `"${clientSecret}"`);
-    console.log('[DEBUG] REFRESH_TOKEN:', `"${refreshToken}"`);
-
-    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-
-    const data = qs.stringify({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken
-    });
-
-    const response = await axios.post('https://www.bling.com.br/Api/v3/oauth/token', data, {
-      headers: {
-        'Authorization': `Basic ${basicAuth}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    });
-
-    accessToken = response.data.access_token;
-    console.log('[BLING] Novo access_token gerado com sucesso');
-
-    // Enviar tokens atualizados para o Make.com
-    try {
-      await axios.post('https://hook.us2.make.com/hce28beph3r90vwy91fu0au1pfg85qtt', {
-        access_token: response.data.access_token,
-        refresh_token: response.data.refresh_token
-      });
-      console.log('[MAKE] Tokens enviados para o Make.com com sucesso');
-    } catch (makeError) {
-      console.error('[MAKE] Falha ao enviar tokens para o Make.com:', makeError.message);
-    }
-
-    return accessToken;
-
-  } catch (error) {
-    console.error('[BLING] Erro ao renovar access_token:', error.response?.data || error.message);
-    throw error;
-  }
-}
-
 async function criarPedido(dados) {
-  // ✅ Garante que token seja carregado inicialmente se estiver vazio
   if (!accessToken) {
     await carregarTokenDoMake();
   }
@@ -120,8 +72,8 @@ async function criarPedido(dados) {
 
   } catch (error) {
     if (error.response?.status === 401) {
-      console.log('[BLING] Token expirado. Renovando...');
-      accessToken = await renovarAccessToken();
+      console.log('[BLING] Token expirado ou inválido. Tentando carregar novamente...');
+      accessToken = await carregarTokenDoMake();
 
       const retry = await axios.post('https://api.bling.com.br/v3/pedidos/vendas', payload, {
         headers: {
@@ -139,15 +91,9 @@ async function criarPedido(dados) {
 }
 
 module.exports = {
-  criarPedido,
-  renovarAccessToken,
-  get accessToken() {
-    return accessToken;
-  },
-  get refreshToken() {
-    return process.env.BLING_REFRESH_TOKEN;
-  }
+  criarPedido
 };
+
 
 
 
