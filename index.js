@@ -2,10 +2,9 @@ require('dotenv').config();
 
 // ==============================================================================
 // PASSO DE DEBUG: Verifique se o .env foi carregado corretamente.
-// Olhe no seu terminal ao iniciar o servidor. Se aparecer "undefined",
-// o seu arquivo .env não está sendo encontrado.
 // ==============================================================================
 console.log('[DEBUG] Verificando variável BLING_REFRESH_TOKEN:', process.env.BLING_REFRESH_TOKEN);
+console.log('[DEBUG] Verificando variável REDIS_URL:', process.env.REDIS_URL);
 
 
 const express = require('express');
@@ -102,8 +101,9 @@ app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) =>
 // Inicialização do servidor com token
 (async () => {
   try {
-    await blingService.inicializarTokens();
-    console.log('[INIT] Tokens do Bling carregados com sucesso.');
+    // ✅ USA A NOVA FUNÇÃO DE INICIALIZAÇÃO COM REDIS
+    await blingService.inicializarServicoBling();
+    console.log('[INIT] Serviço do Bling inicializado com sucesso.');
 
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {

@@ -1,35 +1,52 @@
 const axios = require('axios');
 const qs = require('qs');
-const fs = require('fs');
-const path = require('path');
+const { createClient } = require('redis'); // Importa o cliente Redis
 require('dotenv').config();
 
-const TOKEN_FILE_PATH = path.join(__dirname, 'bling_token.json');
-
+// Variáveis em memória para acesso rápido
 let accessToken = null;
 let refreshToken = null;
 let expiresAt = null;
 
-async function carregarTokensDoArquivo() {
+// Criação do cliente Redis
+// Ele usará a variável de ambiente REDIS_URL automaticamente.
+const redisClient = createClient({
+  url: process.env.REDIS_URL
+});
+
+redisClient.on('error', (err) => console.log('Redis Client Error', err));
+
+// A chave que usaremos para guardar os dados no Redis
+const TOKEN_KEY = 'bling_tokens';
+
+/**
+ * Carrega os tokens do banco de dados Redis.
+ */
+async function carregarTokensDoRedis() {
   try {
-    // Tenta ler o arquivo de token que guarda o estado mais recente.
-    const data = fs.readFileSync(TOKEN_FILE_PATH, 'utf8');
-    const tokenData = JSON.parse(data);
+    await redisClient.connect(); // Conecta ao Redis
+    const tokenDataString = await redisClient.get(TOKEN_KEY); // Busca os dados
+    await redisClient.disconnect(); // Desconecta
 
-    accessToken = tokenData.access_token;
-    refreshToken = tokenData.refresh_token;
-    expiresAt = tokenData.expires_at;
-
-    console.log('[BLING] Tokens carregados do arquivo persistente.');
+    if (tokenDataString) {
+      const tokenData = JSON.parse(tokenDataString);
+      accessToken = tokenData.access_token;
+      refreshToken = tokenData.refresh_token;
+      expiresAt = tokenData.expires_at;
+      console.log('[BLING] Tokens carregados do Redis com sucesso.');
+    } else {
+        throw new Error('Nenhum token encontrado no Redis.');
+    }
   } catch (error) {
-    // Se o arquivo não existe (primeira execução) ou dá erro, usa o .env como ponto de partida.
-    console.warn('[BLING] Nenhum token salvo ou erro ao ler arquivo. Usando .env como fallback.');
+    console.warn(`[BLING] ${error.message}. Usando .env como fallback.`);
     refreshToken = process.env.BLING_REFRESH_TOKEN;
   }
 }
 
-async function salvarTokensNoArquivo(tokenData) {
-  // Calcula o tempo de expiração com uma margem de segurança de 1 minuto.
+/**
+ * Salva os tokens no banco de dados Redis.
+ */
+async function salvarTokensNoRedis(tokenData) {
   const expiresInMilliseconds = (tokenData.expires_in * 1000) - 60000;
   const expiresAtCalculated = Date.now() + expiresInMilliseconds;
 
@@ -39,27 +56,29 @@ async function salvarTokensNoArquivo(tokenData) {
     expires_at: expiresAtCalculated
   };
 
-  // Salva os novos tokens no arquivo para persistência.
-  fs.writeFileSync(TOKEN_FILE_PATH, JSON.stringify(dataToSave, null, 2), 'utf8');
-  console.log('[BLING] Tokens salvos/atualizados em bling_token.json');
+  await redisClient.connect();
+  // Salva o objeto como uma string JSON no Redis
+  await redisClient.set(TOKEN_KEY, JSON.stringify(dataToSave));
+  await redisClient.disconnect();
 
-  // Atualiza as variáveis em memória para uso imediato.
+  console.log('[BLING] Tokens salvos no Redis.');
+
   accessToken = dataToSave.access_token;
   refreshToken = dataToSave.refresh_token;
   expiresAt = dataToSave.expires_at;
 }
 
+/**
+ * Renova o access token usando o refresh token.
+ */
 async function renovarAccessToken() {
-  // Se em nenhum momento um refresh token foi carregado, o processo não pode continuar.
   if (!refreshToken) {
     throw new Error('Refresh Token não encontrado. Verifique seu arquivo .env e a variável BLING_REFRESH_TOKEN.');
   }
 
   const clientId = process.env.CLIENT_ID;
   const clientSecret = process.env.CLIENT_SECRET;
-
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-
   const data = qs.stringify({
     grant_type: 'refresh_token',
     refresh_token: refreshToken
@@ -73,7 +92,9 @@ async function renovarAccessToken() {
       }
     });
 
-    await salvarTokensNoArquivo(response.data);
+    // Em vez de salvar em arquivo, agora salvamos no Redis
+    await salvarTokensNoRedis(response.data);
+
   } catch (err) {
     console.error('[BLING] Erro CRÍTICO ao renovar token:', err.response?.data || err.message);
     throw err;
@@ -85,53 +106,37 @@ async function getValidAccessToken() {
     console.log('[BLING] Token expirado ou inexistente. Tentando renovar...');
     await renovarAccessToken();
   }
-
   return accessToken;
 }
 
 async function criarPedido(dados) {
   const token = await getValidAccessToken();
-
-  // Mapeia os dados recebidos para o formato que a API do Bling espera.
   const payload = {
     data: new Date().toISOString().split('T')[0],
-    contato: {
-      id: dados.idCliente
-    },
-    itens: [
-      {
-        produto: {
-          codigo: dados.codigoProduto
-        },
+    contato: { id: dados.idCliente },
+    itens: [{
+        produto: { codigo: dados.codigoProduto },
         quantidade: dados.quantidade,
         valor: dados.valor
-      }
-    ],
+    }],
     observacoes: dados.observacoes || '',
     observacoesInternas: dados.observacoesInternas || ''
   };
 
   const response = await axios.post(
     'https://www.bling.com.br/Api/v3/pedidos/vendas',
-    payload,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    }
+    payload, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
   );
-
   return response.data;
 }
 
-async function inicializarTokens() {
-  await carregarTokensDoArquivo();
+// Renomeamos a função para ser mais clara
+async function inicializarServicoBling() {
+  await carregarTokensDoRedis();
 }
 
-// Exporta TODAS as funções necessárias para o index.js
 module.exports = {
-  inicializarTokens,
+  inicializarServicoBling,
   getValidAccessToken,
   criarPedido
 };
