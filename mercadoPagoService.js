@@ -1,37 +1,32 @@
-const mercadopago = require('mercadopago');
+const { MercadoPagoConfig } = require('mercadopago');
 
-mercadopago.configure({
-  access_token: process.env.MERCADO_PAGO_ACCESS_TOKEN
+const mercadopago = new MercadoPagoConfig({
+  accessToken: process.env.MP_ACCESS_TOKEN
 });
 
-// Consulta real ao Mercado Pago
+// Exemplo de uso — buscar pagamento
 async function buscarPagamento(idPagamento) {
   try {
-    const pagamento = await mercadopago.payment.findById(idPagamento);
-    const { status, transaction_amount, payer, id } = pagamento.body;
+    const response = await mercadopago.payment.findById(idPagamento);
 
-    if (status !== 'approved') {
-      throw new Error(`Pagamento ainda não aprovado (status: ${status})`);
-    }
+    const pagamento = response.body;
 
-    const response = {
-      id,
-      valor: transaction_amount,
-      nomeCliente: payer?.first_name || 'Cliente',
-      produto: 'Produto Teste', // opcionalmente, você pode extrair do pagamento
-      quantidade: 1 // ajustar futuramente se o checkout enviar essa info
+    return {
+      id: pagamento.id,
+      valor: pagamento.transaction_amount,
+      nomeCliente: pagamento.payer?.first_name || "Cliente",
+      produto: pagamento.description || "Produto",
+      quantidade: pagamento.additional_info?.items?.[0]?.quantity || 1
     };
 
-    console.log('[MP] Pagamento REAL recebido:', response);
-    return response;
-
   } catch (error) {
-    console.error('[MP] Erro ao buscar pagamento:', error.message);
+    console.error('[MP] Erro ao buscar pagamento real:', error.message);
     throw error;
   }
 }
 
 module.exports = { buscarPagamento };
+
 
 
 
