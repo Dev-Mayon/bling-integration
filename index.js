@@ -7,6 +7,17 @@ const mercadoPagoService = require('./mercadoPagoService');
 
 app.use(express.json());
 
+// Inicializa os tokens ao subir o servidor
+(async () => {
+  try {
+    await blingService.inicializarTokens();
+    console.log('[INIT] Tokens do Bling carregados com sucesso');
+  } catch (err) {
+    console.error('[INIT] Erro ao carregar tokens do Bling:', err.message);
+    process.exit(1); // Encerra se falhar
+  }
+})();
+
 // ROTA 1 — Criação manual via POST
 app.post('/api/pedido', async (req, res) => {
   try {
@@ -74,6 +85,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
+
 
 
 

@@ -6,7 +6,7 @@ async function registrarWebhook() {
     const response = await axios.post(
       'https://api.mercadopago.com/v1/webhooks',
       {
-        url: 'https://bling-integration-1yey.onrender.com/webhook',
+        url: 'https://bling-integration-1yey.onrender.com/mercadopago/webhook',
       },
       {
         headers: {
@@ -23,6 +23,7 @@ async function registrarWebhook() {
 }
 
 registrarWebhook();
+
 
 
 
