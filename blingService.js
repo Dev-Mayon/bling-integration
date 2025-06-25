@@ -122,7 +122,18 @@ async function criarPedido(dados) {
   }
 }
 
-module.exports = { criarPedido, renovarAccessToken };
+// ✅ Exportação dinâmica dos tokens
+module.exports = {
+  criarPedido,
+  renovarAccessToken,
+  get accessToken() {
+    return accessToken;
+  },
+  get refreshToken() {
+    return process.env.BLING_REFRESH_TOKEN;
+  }
+};
+
 
 
 

@@ -15,16 +15,15 @@ app.post('/api/pedido', async (req, res) => {
     res.status(201).json({ success: true, result });
   } catch (error) {
     const errorData = error.response?.data || error.message;
-    console.error('Erro ao criar pedido:', JSON.stringify(errorData, null, 2));
+    console.error('[ERRO] Ao criar pedido manual:', JSON.stringify(errorData, null, 2));
     res.status(500).json({ success: false, error: errorData });
   }
 });
 
-// ROTA 2 — Notificação do Mercado Pago (consulta dados reais do pagamento)
+// ROTA 2 — Notificação automática do Mercado Pago
 app.post('/notificacao', async (req, res) => {
   try {
     const { id } = req.body;
-
     const dadosPagamento = await mercadoPagoService.buscarPagamento(id);
 
     const pedido = {
@@ -41,23 +40,30 @@ app.post('/notificacao', async (req, res) => {
     res.status(201).json({ success: true, result });
   } catch (error) {
     const errorData = error.response?.data || error.message;
-    console.error('[ERRO] Ao processar notificação:', JSON.stringify(errorData, null, 2));
+    console.error('[ERRO] Ao processar notificação do MP:', JSON.stringify(errorData, null, 2));
     res.status(500).json({ success: false, error: errorData });
   }
 });
 
-// 🔁 Agendamento de renovação automática do token Bling
-const renovarAccessToken = blingService.renovarAccessToken;
+// ROTA 3 — Consulta os tokens atuais (útil para testes)
+app.get('/tokens', (req, res) => {
+  res.json({
+    access_token: blingService.accessToken,
+    refresh_token: blingService.refreshToken
+  });
+});
 
+// 🔁 Agendamento da renovação automática do token Bling
 console.log('[SCHEDULER] Renovação automática iniciada...');
-renovarAccessToken(); // Executa na inicialização
+blingService.renovarAccessToken(); // Executa ao iniciar
 
 const CINCO_HORAS_MS = 5 * 60 * 60 * 1000;
 setInterval(() => {
   console.log('[SCHEDULER] Executando renovação programada...');
-  renovarAccessToken();
+  blingService.renovarAccessToken();
 }, CINCO_HORAS_MS);
 
+// Inicialização do servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
