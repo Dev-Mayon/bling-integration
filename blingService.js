@@ -19,9 +19,15 @@ async function carregarTokensDoArquivo() {
     refreshToken = tokenData.refresh_token;
     expiresAt = tokenData.expires_at;
 
-    console.log('[BLING] Tokens carregados do arquivo.');
+    if (!refreshToken) {
+      console.warn('[BLING] refresh_token ausente no arquivo. Usando .env como fallback.');
+      refreshToken = process.env.BLING_REFRESH_TOKEN;
+    } else {
+      console.log('[BLING] Tokens carregados do arquivo.');
+    }
+
   } catch (error) {
-    console.warn('[BLING] Nenhum token salvo ou erro ao ler arquivo. Usando .env como fallback.');
+    console.warn('[BLING] Erro ao carregar arquivo. Usando .env como fallback.');
     refreshToken = process.env.BLING_REFRESH_TOKEN;
   }
 }
@@ -39,6 +45,7 @@ async function salvarTokensNoArquivo(tokenData) {
   fs.writeFileSync(TOKEN_FILE_PATH, JSON.stringify(dataToSave, null, 2), 'utf8');
   console.log('[BLING] Tokens salvos em bling_token.json');
 
+  // Atualiza variáveis em memória
   accessToken = dataToSave.access_token;
   refreshToken = dataToSave.refresh_token;
   expiresAt = dataToSave.expires_at;
@@ -79,55 +86,15 @@ async function getValidAccessToken() {
   return accessToken;
 }
 
-async function criarPedido(dados) {
-  const token = await getValidAccessToken();
-
-  const payload = {
-    numero: `BB${Date.now()}`,
-    data: new Date().toISOString().split('T')[0],
-    dataPrevista: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    tipo: 'VENDA',
-    situacao: dados.situacao,
-    contato: {
-      id: dados.idCliente
-    },
-    itens: [
-      {
-        produto: {
-          codigo: dados.codigoProduto
-        },
-        quantidade: dados.quantidade,
-        valor: dados.valor
-      }
-    ],
-    observacoes: dados.observacoes || '',
-    observacoesInternas: dados.observacoesInternas || ''
-  };
-
-  const response = await axios.post(
-    'https://www.bling.com.br/Api/v3/pedidos/vendas',
-    payload,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
-
-  console.log('[BLING] Pedido criado com sucesso:', response.data);
-  return response.data;
-}
-
 async function inicializarTokens() {
   await carregarTokensDoArquivo();
 }
 
 module.exports = {
   inicializarTokens,
-  getValidAccessToken,
-  criarPedido // ✅ Exportado corretamente agora
+  getValidAccessToken
 };
+
 
 
 
