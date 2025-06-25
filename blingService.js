@@ -10,6 +10,11 @@ async function renovarAccessToken() {
     const clientSecret = process.env.CLIENT_SECRET;
     const refreshToken = process.env.BLING_REFRESH_TOKEN;
 
+    // ✅ DEBUG: Mostra variáveis do ambiente com aspas visíveis
+    console.log('[DEBUG] CLIENT_ID:', `"${clientId}"`);
+    console.log('[DEBUG] CLIENT_SECRET:', `"${clientSecret}"`);
+    console.log('[DEBUG] REFRESH_TOKEN:', `"${refreshToken}"`);
+
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
     const data = qs.stringify({
@@ -29,7 +34,7 @@ async function renovarAccessToken() {
 
     // Enviar tokens atualizados para o Make.com
     try {
-      await axios.post('https://hook.us2.make.com/hce28beph3r90wvy9f1t0uai1pgf85', {
+      await axios.post('https://hook.us2.make.com/hce28beph3r90vwy91fu0au1pfg85qtt', {
         access_token: response.data.access_token,
         refresh_token: response.data.refresh_token
       });
@@ -117,7 +122,8 @@ async function criarPedido(dados) {
   }
 }
 
-module.exports = { criarPedido };
+module.exports = { criarPedido, renovarAccessToken };
+
 
 
 

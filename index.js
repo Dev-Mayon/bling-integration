@@ -1,8 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const app = express();
+
 const blingService = require('./blingService');
-const mercadoPagoService = require('./mercadoPagoService'); // ✅ serviço Mercado Pago
+const mercadoPagoService = require('./mercadoPagoService');
 
 app.use(express.json());
 
@@ -24,7 +25,6 @@ app.post('/notificacao', async (req, res) => {
   try {
     const { id } = req.body;
 
-    // 🔍 Busca os dados reais do pagamento (simulado por enquanto)
     const dadosPagamento = await mercadoPagoService.buscarPagamento(id);
 
     const pedido = {
@@ -46,10 +46,23 @@ app.post('/notificacao', async (req, res) => {
   }
 });
 
+// 🔁 Agendamento de renovação automática do token Bling
+const renovarAccessToken = blingService.renovarAccessToken;
+
+console.log('[SCHEDULER] Renovação automática iniciada...');
+renovarAccessToken(); // Executa na inicialização
+
+const CINCO_HORAS_MS = 5 * 60 * 60 * 1000;
+setInterval(() => {
+  console.log('[SCHEDULER] Executando renovação programada...');
+  renovarAccessToken();
+}, CINCO_HORAS_MS);
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
+
 
 
 
