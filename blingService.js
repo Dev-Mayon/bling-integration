@@ -1,8 +1,21 @@
 const axios = require('axios');
-const qs = require('qs'); // necessário para formatar o corpo como x-www-form-urlencoded
+const qs = require('qs');
 require('dotenv').config();
 
-let accessToken = process.env.BLING_ACCESS_TOKEN;
+let accessToken = null; // agora inicializa vazio
+
+// ✅ Carrega o token mais recente do Make
+async function carregarTokenDoMake() {
+  try {
+    const response = await axios.get('https://hook.us2.make.com/hce28beph3r90vwy91fu0au1pfg85qtt');
+    accessToken = response.data.access_token;
+    console.log('[MAKE] Token carregado com sucesso do Make');
+    return accessToken;
+  } catch (err) {
+    console.error('[MAKE] Erro ao buscar token do Make:', err.message);
+    throw err;
+  }
+}
 
 async function renovarAccessToken() {
   try {
@@ -10,7 +23,6 @@ async function renovarAccessToken() {
     const clientSecret = process.env.CLIENT_SECRET;
     const refreshToken = process.env.BLING_REFRESH_TOKEN;
 
-    // ✅ DEBUG: Mostra variáveis do ambiente com aspas visíveis
     console.log('[DEBUG] CLIENT_ID:', `"${clientId}"`);
     console.log('[DEBUG] CLIENT_SECRET:', `"${clientSecret}"`);
     console.log('[DEBUG] REFRESH_TOKEN:', `"${refreshToken}"`);
@@ -52,6 +64,11 @@ async function renovarAccessToken() {
 }
 
 async function criarPedido(dados) {
+  // ✅ Garante que token seja carregado inicialmente se estiver vazio
+  if (!accessToken) {
+    await carregarTokenDoMake();
+  }
+
   const valorUnitario = (dados.valor / (dados.quantidade || 1)) || 100.00;
   const valorTotalVenda = dados.valor || 100.00;
   const numeroGerado = `BB${Date.now()}`;
@@ -62,7 +79,6 @@ async function criarPedido(dados) {
     dataPrevista: dados.dataPrevista || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     tipo: "VENDA",
     situacao: dados.situacao || "Em aberto",
-
     contato: {
       id: dados.idCliente || process.env.CLIENTE_ID
     },
@@ -122,7 +138,6 @@ async function criarPedido(dados) {
   }
 }
 
-// ✅ Exportação dinâmica dos tokens
 module.exports = {
   criarPedido,
   renovarAccessToken,
@@ -133,6 +148,7 @@ module.exports = {
     return process.env.BLING_REFRESH_TOKEN;
   }
 };
+
 
 
 
