@@ -1,15 +1,12 @@
-const { MercadoPagoConfig } = require('mercadopago');
+const { MercadoPagoConfig, Payment } = require('mercadopago');
 
-const mercadopago = new MercadoPagoConfig({
+const client = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN
 });
 
-// Exemplo de uso — buscar pagamento
 async function buscarPagamento(idPagamento) {
   try {
-    const response = await mercadopago.payment.findById(idPagamento);
-
-    const pagamento = response.body;
+    const pagamento = await new Payment(client).get({ id: idPagamento });
 
     return {
       id: pagamento.id,
@@ -18,7 +15,6 @@ async function buscarPagamento(idPagamento) {
       produto: pagamento.description || "Produto",
       quantidade: pagamento.additional_info?.items?.[0]?.quantity || 1
     };
-
   } catch (error) {
     console.error('[MP] Erro ao buscar pagamento real:', error.message);
     throw error;
@@ -26,6 +22,7 @@ async function buscarPagamento(idPagamento) {
 }
 
 module.exports = { buscarPagamento };
+
 
 
 
