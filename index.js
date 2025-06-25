@@ -3,7 +3,7 @@ const express = require('express');
 const app = express();
 
 const blingService = require('./blingService');
-// const mercadoPagoService = require('./mercadoPagoService'); // Comentado para evitar erro
+const mercadoPagoService = require('./mercadoPagoService'); // Reativado
 
 app.use(express.json());
 
@@ -44,11 +44,33 @@ app.post('/notificacao', async (req, res) => {
   }
 });
 
+// ROTA 3 — Webhook oficial do Mercado Pago (pagamentos reais)
+app.post('/mercadopago/webhook', async (req, res) => {
+  try {
+    const paymentId = req.body.data?.id;
+
+    if (!paymentId) {
+      console.warn('[MP] Webhook recebido sem payment_id:', req.body);
+      return res.status(400).send('payment_id ausente');
+    }
+
+    const pagamento = await mercadoPagoService.buscarPagamento(paymentId);
+    console.log('[MP] Pagamento real recebido:', pagamento);
+
+    await blingService.criarPedido(pagamento);
+    res.status(201).send('Pedido criado com sucesso no Bling');
+  } catch (error) {
+    console.error('[ERRO] Webhook Mercado Pago:', error.message);
+    res.status(500).send('Erro ao processar webhook');
+  }
+});
+
 // Inicialização do servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
+
 
 
 
