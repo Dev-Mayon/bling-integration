@@ -27,32 +27,49 @@ app.use((req, res, next) => {
 });
 
 
-// Middleware de segurança para o Webhook do Mercado Pago
+// ==============================================================================
+//  MIDDLEWARE DE SEGURANÇA PARA O WEBHOOK
+// ==============================================================================
+/**
+ * Verifica se a notificação recebida veio realmente do Mercado Pago.
+ */
 function verifyMercadoPagoSignature(req, res, next) {
   const signatureHeader = req.get('x-signature');
   if (!signatureHeader) {
+    console.warn('[SECURITY] Webhook recebido sem o cabeçalho x-signature.');
     return res.status(401).send('Assinatura ausente.');
   }
 
+  // Extrai o timestamp (ts) e o hash (v1) do cabeçalho
   const parts = signatureHeader.split(',');
-  const ts = parts.find(part => part.startsWith('ts=')).split('=')[1];
-  const hash = parts.find(part => part.startsWith('v1=')).split('=')[1];
+  const ts = parts.find(part => part.startsWith('ts='))?.split('=')[1];
+  const hash = parts.find(part => part.startsWith('v1='))?.split('=')[1];
+
+  if (!ts || !hash) {
+      return res.status(401).send('Formato de assinatura inválido.');
+  }
+
+  // Pega a chave secreta que vamos configurar no Render
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
 
   if (!secret) {
-      console.error('[SECURITY] Chave secreta do webhook não configurada no .env');
+      console.error('[SECURITY] Chave secreta do webhook (MERCADOPAGO_WEBHOOK_SECRET) não configurada.');
       return res.status(500).send('Erro interno do servidor.');
   }
 
+  // Cria a string que o Mercado Pago usou para gerar a assinatura
   const manifest = `id:${JSON.parse(req.body).data.id};ts:${ts};`;
+
+  // Calcula nossa própria assinatura usando a chave secreta
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(manifest);
   const expectedSignature = hmac.digest('hex');
 
+  // Compara as duas assinaturas de forma segura
   if (crypto.timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(hash))) {
     console.log('[SECURITY] Assinatura do Webhook validada com sucesso.');
-    req.body = JSON.parse(req.body);
-    next();
+    req.body = JSON.parse(req.body); // Converte o corpo para JSON para os próximos passos
+    next(); // A requisição é legítima, pode continuar.
   } else {
     console.warn('[SECURITY] FALHA NA VALIDAÇÃO DA ASSINATURA. Requisição bloqueada.');
     res.status(403).send('Assinatura inválida.');
@@ -60,7 +77,7 @@ function verifyMercadoPagoSignature(req, res, next) {
 }
 
 
-// ROTA 1 — Criação manual via POST
+// ROTA 1 — Criação manual via POST (para testes)
 app.post('/api/pedido', async (req, res) => {
   try {
     const pedido = req.body;
@@ -74,7 +91,7 @@ app.post('/api/pedido', async (req, res) => {
 });
 
 
-// ROTA 3 — Webhook real do Mercado Pago (com segurança)
+// ROTA 3 — Webhook real do Mercado Pago (AGORA COM CAMADA DE SEGURANÇA)
 app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) => {
   try {
     const paymentId = req.body.data?.id;
@@ -85,14 +102,13 @@ app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) =>
     console.log(`[MP] Buscando pagamento ID: ${paymentId}`);
     const pagamento = await mercadoPagoService.buscarPagamento(paymentId);
 
-    console.log('[MP] Pagamento obtido:', JSON.stringify(pagamento, null, 2));
+    console.log('[MP] Pagamento obtido com sucesso.');
     const result = await blingService.criarPedido(pagamento);
 
-    console.log('[BLING] Pedido criado com sucesso:', result);
-    res.status(201).send('Notificação recebida e processada com sucesso.');
+    console.log('[BLING] Pedido criado com sucesso a partir do webhook.');
+    res.status(200).send('Notificação recebida e processada com sucesso.');
   } catch (error) {
     console.error('[ERRO INTERNO]', error.message);
-    console.error('[ERRO COMPLETO]', error.response?.data || error.stack);
     res.status(500).send('Erro ao processar webhook.');
   }
 });
@@ -101,7 +117,6 @@ app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) =>
 // Inicialização do servidor com token
 (async () => {
   try {
-    // ✅ USA A NOVA FUNÇÃO DE INICIALIZAÇÃO COM REDIS
     await blingService.inicializarServicoBling();
     console.log('[INIT] Serviço do Bling inicializado com sucesso.');
 
@@ -110,8 +125,8 @@ app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) =>
       console.log(`[INIT] Servidor rodando em http://localhost:${PORT}`);
     });
   } catch(error) {
-    console.error('[INIT] FALHA CRÍTICA AO INICIAR. Verifique o erro acima.', error.message);
-    process.exit(1); // Encerra o processo se a inicialização falhar
+    console.error('[INIT] FALHA CRÍTICA AO INICIAR.', error.message);
+    process.exit(1);
   }
 })();
 
