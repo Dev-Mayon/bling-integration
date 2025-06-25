@@ -6,7 +6,7 @@ let accessToken = null;
 // ✅ Carrega o token mais recente do Make
 async function carregarTokenDoMake() {
   try {
-    const response = await axios.get('https://hook.us2.make.com/hce28beph3r90vwy91fu0au1pfg85qtt');
+    const response = await axios.get('https://hook.us2.make.com/ml4unl2dnvi1xal2grydq77mj86s9sye');
     accessToken = response.data.access_token;
     console.log('[MAKE] Token carregado com sucesso do Make');
     return accessToken;
