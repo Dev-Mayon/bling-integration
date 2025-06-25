@@ -1,27 +1,38 @@
-// Simulação temporária — sem acesso à API do Mercado Pago real
+const mercadopago = require('mercadopago');
+
+mercadopago.configure({
+  access_token: process.env.MERCADO_PAGO_ACCESS_TOKEN
+});
+
+// Consulta real ao Mercado Pago
 async function buscarPagamento(idPagamento) {
   try {
-    // Dados simulados apenas para teste
+    const pagamento = await mercadopago.payment.findById(idPagamento);
+    const { status, transaction_amount, payer, id } = pagamento.body;
+
+    if (status !== 'approved') {
+      throw new Error(`Pagamento ainda não aprovado (status: ${status})`);
+    }
+
     const response = {
-      data: {
-        id: idPagamento,
-        valor: 179.90,
-        nomeCliente: "Cliente Exemplo",
-        produto: "Produto Teste",
-        quantidade: 1
-      }
+      id,
+      valor: transaction_amount,
+      nomeCliente: payer?.first_name || 'Cliente',
+      produto: 'Produto Teste', // opcionalmente, você pode extrair do pagamento
+      quantidade: 1 // ajustar futuramente se o checkout enviar essa info
     };
 
-    console.log('[MP] Pagamento simulado recebido:', response.data);
-    return response.data;
+    console.log('[MP] Pagamento REAL recebido:', response);
+    return response;
 
   } catch (error) {
-    console.error('[MP] Erro na simulação do pagamento:', error.message);
+    console.error('[MP] Erro ao buscar pagamento:', error.message);
     throw error;
   }
 }
 
 module.exports = { buscarPagamento };
+
 
 
 
