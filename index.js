@@ -11,6 +11,22 @@ const app = express();
 const blingService = require('./blingService');
 const mercadoPagoService = require('./mercadoPagoService');
 
+// Catálogo interno de produtos para consulta
+const produtos = {
+  '+V1': {
+    nome: 'Kit 1 Unidade Mais Vigor',
+    preco: 99.00
+  },
+  '+V3': {
+    nome: 'Kit 3 Unidades Mais Vigor',
+    preco: 229.00
+  },
+  '+V5': {
+    nome: 'Kit 5 Unidades Mais Vigor',
+    preco: 349.00
+  }
+};
+
 
 // Middleware para garantir que o corpo da requisição seja lido corretamente
 app.use((req, res, next) => {
@@ -117,22 +133,30 @@ app.post('/api/criar-checkout', async (req, res) => {
   console.log('--- REQUISIÇÃO RECEBIDA EM /api/criar-checkout ---');
 
   try {
-    const { sku } = req.body; // Esperamos receber o SKU do produto no corpo da requisição
+    const { sku } = req.body;
 
     if (!sku) {
       console.error('[ERRO] SKU do produto não foi fornecido na requisição.');
       return res.status(400).json({ error: 'SKU do produto é obrigatório.' });
     }
-
     console.log(`[INFO] SKU recebido: ${sku}`);
 
-    // --- LÓGICA PARA CRIAR PREFERÊNCIA DE PAGAMENTO (PRÓXIMOS PASSOS) ---
-    // Por enquanto, vamos apenas simular uma resposta de sucesso.
+    // Busca o produto no nosso catálogo
+    const produto = produtos[sku];
 
+    if (!produto) {
+      console.error(`[ERRO] Produto com SKU '${sku}' não encontrado em nosso catálogo.`);
+      return res.status(404).json({ error: 'Produto não encontrado.' });
+    }
+
+    console.log(`[INFO] Produto encontrado: ${JSON.stringify(produto)}`);
+
+    // --- LÓGICA PARA CHAMAR O MERCADO PAGO (PRÓXIMO PASSO) ---
+    // Por enquanto, vamos apenas simular uma resposta de sucesso.
     const mockPreferenceId = 'ID_DA_PREFERENCIA_SIMULADO_12345';
     console.log(`[SIMULAÇÃO] Gerando ID de preferência: ${mockPreferenceId}`);
 
-    res.status(200).json({ preferenceId: mockPreferenceId });
+    res.status(200).json({ preferenceId: mockPreferenceId, produtoEncontrado: produto });
 
   } catch (error) {
     console.error('[ERRO] Falha ao processar a criação de checkout:', error);
