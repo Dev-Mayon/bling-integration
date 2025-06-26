@@ -85,7 +85,9 @@ app.post('/api/pedido', async (req, res) => {
 
 // ROTA 2 — Webhook real do Mercado Pago (Segura)
 app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) => {
-  // ... (código da rota permanece o mesmo)
+  // Adicione aqui a lógica real para processar o webhook
+  console.log('[INFO] Webhook do Mercado Pago recebido e validado.');
+  res.status(200).send('Webhook recebido.');
 });
 
 // ROTA DE TESTE TEMPORÁRIA
@@ -148,22 +150,22 @@ app.post('/api/criar-checkout', async (req, res) => {
   }
 });
 
-// Inicialização do servidor
-(async () => {
-  try {
-    await blingService.inicializarServicoBling();
-    console.log('[INIT] Serviço do Bling inicializado com sucesso.');
-    const PORT = process.env.PORT || 3000;
 
-    // AQUI ESTÁ A CORREÇÃO: adicionado '0.0.0.0'
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`[INIT] Servidor rodando na porta ${PORT}, acessível externamente.`);
+// Inicialização do servidor (versão final corrigida)
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[INIT] Servidor HTTP rodando na porta ${PORT}.`);
+
+  // Agora, inicializa os outros serviços depois que o servidor já está no ar
+  blingService.inicializarServicoBling()
+    .then(() => {
+      console.log('[INIT] Serviço do Bling inicializado com sucesso.');
+    })
+    .catch(error => {
+      console.error('[INIT] FALHA CRÍTICA AO INICIAR O SERVIÇO DO BLING.', error.message);
+      // Mesmo com o erro, o servidor HTTP continua no ar para receber requisições de debug
     });
-
-  } catch (error) {
-    console.error('[INIT] FALHA CRÍTICA AO INICIAR.', error.message);
-    process.exit(1);
-  }
-})();
+});
 
 
