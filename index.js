@@ -10,6 +10,7 @@ const app = express();
 
 const blingService = require('./blingService');
 const mercadoPagoService = require('./mercadoPagoService');
+const { FT_AGGREGATE_STEPS } = require('redis');
 
 // Catálogo interno de produtos para consulta
 const produtos = {
@@ -179,3 +180,5 @@ app.post('/api/criar-checkout', async (req, res) => {
     process.exit(1);
   }
 })();
+
+
