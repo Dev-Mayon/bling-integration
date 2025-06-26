@@ -134,6 +134,22 @@ app.post('/api/criar-checkout', async (req, res) => {
   }
 });
 
-const startServer = async () => { /* ...código inalterado... */ };
+const PORT = process.env.PORT || 3000;
+
+const startServer = async () => {
+  try {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`[INIT] Servidor rodando na porta ${PORT}`);
+    });
+
+    await blingService.inicializarServicoBling();
+    console.log('[INIT] Serviço do Bling inicializado com sucesso.');
+  } catch (error) {
+    console.error('[INIT] Erro ao iniciar servidor:', error.message);
+    process.exit(1);
+  }
+};
+
 startServer();
+
 
