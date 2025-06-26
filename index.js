@@ -154,9 +154,12 @@ app.post('/api/criar-checkout', async (req, res) => {
     await blingService.inicializarServicoBling();
     console.log('[INIT] Serviço do Bling inicializado com sucesso.');
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`[INIT] Servidor rodando em http://localhost:${PORT}`);
+
+    // AQUI ESTÁ A CORREÇÃO: adicionado '0.0.0.0'
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`[INIT] Servidor rodando na porta ${PORT}, acessível externamente.`);
     });
+
   } catch (error) {
     console.error('[INIT] FALHA CRÍTICA AO INICIAR.', error.message);
     process.exit(1);
