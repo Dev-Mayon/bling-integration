@@ -10,64 +10,95 @@ const client = new MercadoPagoConfig({
 
 /**
  * Busca os detalhes de um pagamento na API do Mercado Pago.
- * IMPORTANTE: Esta função retorna o objeto de pagamento COMPLETO, sem simplificar.
- * @param {string} paymentId O ID do pagamento a ser consultado.
- * @returns {Promise<object>} O objeto completo com os dados do pagamento, retornado pela API.
  */
 async function buscarPagamento(paymentId) {
     try {
         if (!paymentId) {
             throw new Error('O ID do pagamento (paymentId) é obrigatório.');
         }
-
         console.log(`[MP Service] Buscando pagamento com ID: ${paymentId}`);
-
-        // Usa o SDK para buscar os detalhes do pagamento
         const payment = await new Payment(client).get({ id: paymentId });
-
-        // Retorna o objeto de pagamento COMPLETO e sem modificações.
-        // Isso é crucial para que o blingService possa mapear os dados corretamente.
         return payment;
-
     } catch (error) {
         console.error('[MP Service] Erro ao buscar pagamento real:', error.message);
-        // Propaga o erro para que a rota que chamou possa tratá-lo
         throw error;
     }
 }
 
 // =================================================================
-// NOVA FUNÇÃO ADICIONADA
+// FUNÇÃO ATUALIZADA COM A LÓGICA REAL
 // =================================================================
 /**
  * Cria uma preferência de pagamento no Mercado Pago.
- * @param {object} produtoInfo Informações do produto (ex: { sku, nome, preco }).
+ * @param {object} produtoInfo Informações do produto (ex: { nome, preco }).
  * @param {object} dadosCliente Informações do cliente (será usado no futuro).
  * @returns {Promise<string>} O ID da preferência de pagamento gerada.
  */
 async function criarPreferenciaDePagamento(produtoInfo, dadosCliente) {
     try {
-        console.log("[MP Service] Recebido para criar preferência:", { produtoInfo, dadosCliente });
+        console.log("[MP Service] Iniciando criação de preferência real para:", produtoInfo.nome);
 
-        // Instancia o cliente de Preferência
+        // 1. Monta o corpo (body) da requisição para a API do Mercado Pago
+        const body = {
+            items: [
+                {
+                    title: produtoInfo.nome,
+                    quantity: 1,
+                    currency_id: 'BRL', // Moeda brasileira
+                    unit_price: produtoInfo.preco
+                }
+            ],
+            payment_methods: {
+                // 2. Configura a regra de parcelamento
+                installments: 10, // Máximo de 10 parcelas
+                // SEÇÃO DE EXCLUSÃO DE PAGAMENTO REMOVIDA CONFORME SOLICITADO
+
+                // 3. Aplica o desconto de 10% para pagamentos via PIX
+                discounts: [
+                    {
+                        active: true,
+                        name: "10% de desconto no PIX",
+                        type: "percentage",
+                        value: "10",
+                        payment_method_rules: {
+                            payment_methods: [
+                                {
+                                    id: "pix"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            // URL para onde o cliente será redirecionado após o pagamento
+            back_urls: {
+                success: "https://seusite.com/obrigado", // Usaremos uma URL melhor no futuro
+                pending: "https://seusite.com/pendente",
+                failure: "https://seusite.com/falha",
+            },
+            // URL que o Mercado Pago chamará para notificar sobre o status do pagamento.
+            notification_url: `https://bling-integration-1yey.onrender.com/mercadopago/webhook`,
+        };
+
+        // 4. Cria a preferência usando o SDK
+        console.log("[MP Service] Enviando dados para a API do Mercado Pago...");
         const preference = new Preference(client);
+        const result = await preference.create({ body });
 
-        // Placeholder para a lógica que virá a seguir.
-        console.log("[MP Service] Estrutura da função criarPreferenciaDePagamento() executada.");
+        console.log(`[MP Service] Preferência criada com sucesso. ID: ${result.id}`);
 
-        // Por enquanto, vamos retornar um ID de mock para garantir que a estrutura funciona.
-        const mockId = "PREFERENCIA_CRIADA_COM_SUCESSO";
-        return mockId;
+        // 5. Retorna o ID da preferência gerada
+        return result.id;
 
     } catch (error) {
-        console.error("[MP Service] Erro ao criar preferência de pagamento:", error);
-        throw new Error("Falha ao criar preferência de pagamento.");
+        console.error("[MP Service] Erro detalhado ao criar preferência de pagamento:", error.cause ?? error.message);
+        throw new Error("Falha ao criar preferência de pagamento no Mercado Pago.");
     }
 }
 // =================================================================
 
 
-// MODIFICADO: Adicionada a nova função aos exports
+// Exporta as funções
 module.exports = {
     buscarPagamento,
     criarPreferenciaDePagamento
