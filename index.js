@@ -117,11 +117,17 @@ app.post('/test-webhook', async (req, res) => {
     res.status(500).json({ success: false, error: error.response?.data || { message: error.message } });
   }
 });
+
 // ROTA DE TESTE SIMPLES (GET)
 app.get('/health-check', (req, res) => {
   console.log('[INFO] Rota /health-check (GET) foi acionada.');
   res.status(200).send('Servidor está no ar e a rota GET funciona!');
 });
+
+
+// =================================================================
+// ROTA MODIFICADA
+// =================================================================
 // ROTA PARA CRIAÇÃO DO CHECKOUT TRANSPARENTE
 app.post('/api/criar-checkout', async (req, res) => {
   console.log('--- REQUISIÇÃO RECEBIDA EM /api/criar-checkout ---');
@@ -140,15 +146,24 @@ app.post('/api/criar-checkout', async (req, res) => {
     }
     console.log(`[INFO] Produto encontrado: ${JSON.stringify(produto)}`);
 
-    const mockPreferenceId = 'ID_DA_PREFERENCIA_SIMULADO_12345';
-    console.log(`[SIMULAÇÃO] Gerando ID de preferência: ${mockPreferenceId}`);
-    res.status(200).json({ preferenceId: mockPreferenceId, produtoEncontrado: produto });
+    // --- LÓGICA ATUALIZADA ---
+    // Removemos a simulação e chamamos o serviço real.
+    // Os dados do cliente ainda são um placeholder {}.
+    console.log('[INFO] Chamando o serviço do Mercado Pago para criar a preferência...');
+    const preferenceId = await mercadoPagoService.criarPreferenciaDePagamento(produto, {});
+
+    console.log(`[INFO] ID de preferência recebido do serviço: ${preferenceId}`);
+
+    // Enviamos o ID real (ainda mockado no serviço, mas a rota está correta)
+    res.status(200).json({ preferenceId: preferenceId });
+    // --- FIM DA LÓGICA ATUALIZADA ---
 
   } catch (error) {
     console.error('[ERRO] Falha ao processar a criação de checkout:', error);
     res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 });
+// =================================================================
 
 
 // Inicialização do servidor (versão final corrigida)
@@ -167,5 +182,4 @@ app.listen(PORT, '0.0.0.0', () => {
       // Mesmo com o erro, o servidor HTTP continua no ar para receber requisições de debug
     });
 });
-
 
