@@ -85,7 +85,6 @@ app.post('/api/pedido', async (req, res) => {
 
 // ROTA 2 — Webhook real do Mercado Pago (Segura)
 app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) => {
-  // Adicione aqui a lógica real para processar o webhook
   console.log('[INFO] Webhook do Mercado Pago recebido e validado.');
   res.status(200).send('Webhook recebido.');
 });
@@ -96,13 +95,10 @@ app.post('/test-webhook', async (req, res) => {
   try {
     const paymentId = req.body.data?.id;
     if (!paymentId) { return res.status(400).send('payment_id ausente.'); }
-
     console.log(`[TEST-MP] Buscando pagamento ID: ${paymentId}`);
     const pagamento = await mercadoPagoService.buscarPagamento(paymentId);
-
     console.log('[TEST-MP] Pagamento obtido com sucesso.');
     const result = await blingService.criarPedido(pagamento);
-
     console.log('[TEST-BLING] Pedido criado com sucesso a partir da rota de teste.');
     res.status(200).json({ success: true, message: "Pedido de teste criado no Bling!", data: result });
   } catch (error) {
@@ -124,10 +120,6 @@ app.get('/health-check', (req, res) => {
   res.status(200).send('Servidor está no ar e a rota GET funciona!');
 });
 
-
-// =================================================================
-// ROTA MODIFICADA
-// =================================================================
 // ROTA PARA CRIAÇÃO DO CHECKOUT TRANSPARENTE
 app.post('/api/criar-checkout', async (req, res) => {
   console.log('--- REQUISIÇÃO RECEBIDA EM /api/criar-checkout ---');
@@ -138,48 +130,46 @@ app.post('/api/criar-checkout', async (req, res) => {
       return res.status(400).json({ error: 'SKU do produto é obrigatório.' });
     }
     console.log(`[INFO] SKU recebido: ${sku}`);
-
     const produto = produtos[sku];
     if (!produto) {
       console.error(`[ERRO] Produto com SKU '${sku}' não encontrado em nosso catálogo.`);
       return res.status(404).json({ error: 'Produto não encontrado.' });
     }
     console.log(`[INFO] Produto encontrado: ${JSON.stringify(produto)}`);
-
-    // --- LÓGICA ATUALIZADA ---
-    // Removemos a simulação e chamamos o serviço real.
-    // Os dados do cliente ainda são um placeholder {}.
     console.log('[INFO] Chamando o serviço do Mercado Pago para criar a preferência...');
     const preferenceId = await mercadoPagoService.criarPreferenciaDePagamento(produto, {});
-
     console.log(`[INFO] ID de preferência recebido do serviço: ${preferenceId}`);
-
-    // Enviamos o ID real (ainda mockado no serviço, mas a rota está correta)
     res.status(200).json({ preferenceId: preferenceId });
-    // --- FIM DA LÓGICA ATUALIZADA ---
-
   } catch (error) {
     console.error('[ERRO] Falha ao processar a criação de checkout:', error);
     res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 });
+
+// =================================================================
+// NOVA ESTRUTURA DE INICIALIZAÇÃO ROBUSTA
 // =================================================================
 
+const startServer = async () => {
+  try {
+    // 1. Tenta inicializar os serviços externos PRIMEIRO.
+    console.log('[INIT] Tentando inicializar serviço do Bling...');
+    await blingService.inicializarServicoBling();
+    console.log('[INIT] Serviço do Bling inicializado com sucesso.');
+  } catch (error) {
+    // Se o Bling falhar, apenas logamos o erro, mas NÃO impedimos o servidor de iniciar.
+    console.error('[INIT] FALHA CRÍTICA AO INICIAR O SERVIÇO DO BLING.', error.message);
+    console.log('[INIT] O servidor continuará a ser executado em modo degradado (sem integração Bling).');
+  }
 
-// Inicialização do servidor (versão final corrigida)
-const PORT = process.env.PORT || 3000;
+  // 2. Depois de lidar com os serviços, INICIA o servidor HTTP.
+  // Isso garante que o app.listen() sempre será chamado.
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[INIT] Servidor HTTP pronto e ouvindo na porta ${PORT}.`);
+    console.log(`[INIT] Aplicação disponível publicamente.`);
+  });
+};
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[INIT] Servidor HTTP rodando na porta ${PORT}.`);
-
-  // Agora, inicializa os outros serviços depois que o servidor já está no ar
-  blingService.inicializarServicoBling()
-    .then(() => {
-      console.log('[INIT] Serviço do Bling inicializado com sucesso.');
-    })
-    .catch(error => {
-      console.error('[INIT] FALHA CRÍTICA AO INICIAR O SERVIÇO DO BLING.', error.message);
-      // Mesmo com o erro, o servidor HTTP continua no ar para receber requisições de debug
-    });
-});
-
+// Inicia todo o processo.
+startServer();
