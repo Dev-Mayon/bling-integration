@@ -84,9 +84,7 @@ app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) =>
 });
 
 
-// ==============================================================================
-//  ROTA DE TESTE TEMPORÁRIA
-// ==============================================================================
+// ROTA DE TESTE TEMPORÁRIA
 app.post('/test-webhook', async (req, res) => {
   console.log('--- RECEBIDA REQUISIÇÃO NA ROTA DE TESTE ---');
   try {
@@ -111,6 +109,7 @@ app.post('/test-webhook', async (req, res) => {
 // Inicialização do servidor
 (async () => {
   try {
+    // ✅ CHAMANDO A FUNÇÃO CORRETA E RENOMEADA
     await blingService.inicializarServicoBling();
     console.log('[INIT] Serviço do Bling inicializado com sucesso.');
     const PORT = process.env.PORT || 3000;
