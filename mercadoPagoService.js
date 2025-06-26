@@ -23,7 +23,7 @@ async function buscarPagamento(paymentId) {
 
 async function criarPreferenciaDePagamento(produtoInfo, dadosCliente) {
     try {
-        console.log("[MP Service] Iniciando criação de preferência real para:", produtoInfo.nome);
+        console.log("[MP Service] Iniciando criação de preferência (tentativa de correção de desconto).");
 
         const body = {
             items: [
@@ -35,23 +35,27 @@ async function criarPreferenciaDePagamento(produtoInfo, dadosCliente) {
                 }
             ],
             payment_methods: {
-                installments: 10,
-                discounts: [
-                    {
-                        active: true,
-                        name: "10% de desconto no PIX",
-                        type: "percentage",
-                        value: "10",
-                        payment_method_rules: {
-                            payment_methods: [
-                                {
-                                    id: "pix"
-                                }
-                            ]
-                        }
-                    }
-                ]
+                installments: 10
             },
+            // TENTATIVA DE CORREÇÃO: Movendo o objeto de descontos para o nível principal do body.
+            discounts: [
+                {
+                    active: true,
+                    name: "10% de desconto no PIX",
+                    type: "percentage",
+                    value: "10",
+                    payment_method_rules: {
+                        payment_methods: [
+                            {
+                                id: "pix"
+                            }
+                        ],
+                        // As regras de exclusão foram removidas para garantir que não haja conflito
+                        excluded_payment_methods: [],
+                        excluded_payment_types: []
+                    }
+                }
+            ],
             back_urls: {
                 success: "https://seusite.com/obrigado",
                 pending: "https://seusite.com/pendente",
@@ -66,7 +70,6 @@ async function criarPreferenciaDePagamento(produtoInfo, dadosCliente) {
 
         console.log(`[MP Service] Preferência criada com sucesso. ID: ${result.id}`);
 
-        // MODIFICAÇÃO: Devolvemos o objeto de resultado completo
         return result;
 
     } catch (error) {
