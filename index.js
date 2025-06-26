@@ -1,3 +1,5 @@
+// CÓDIGO PARA index.js
+
 require('dotenv').config();
 
 console.log('[DEBUG] Verificando variável BLING_REFRESH_TOKEN:', process.env.BLING_REFRESH_TOKEN ? 'Carregado' : 'NÃO ENCONTRADO');
@@ -10,7 +12,6 @@ const app = express();
 const blingService = require('./blingService');
 const mercadoPagoService = require('./mercadoPagoService');
 
-// Catálogo interno de produtos para consulta
 const produtos = {
   '+V1': {
     nome: 'Kit 1 Unidade Mais Vigor',
@@ -26,7 +27,6 @@ const produtos = {
   }
 };
 
-// Middleware para garantir que o corpo da requisição seja lido corretamente
 app.use((req, res, next) => {
   if (req.path === '/mercadopago/webhook') {
     express.text({ type: 'application/json' })(req, res, next);
@@ -35,7 +35,6 @@ app.use((req, res, next) => {
   }
 });
 
-// Middleware de segurança para o Webhook do Mercado Pago
 function verifyMercadoPagoSignature(req, res, next) {
   const signatureHeader = req.get('x-signature');
   if (!signatureHeader) {
@@ -64,106 +63,79 @@ function verifyMercadoPagoSignature(req, res, next) {
   }
 }
 
-// ROTA 1 — Criação manual via POST
 app.post('/api/pedido', async (req, res) => {
   try {
     const pedido = req.body;
     const result = await blingService.criarPedido(pedido);
     res.status(201).json({ success: true, result });
   } catch (error) {
-    console.error('--- [ERRO DETALHADO EM /api/pedido] ---');
-    if (error.response) {
-      console.error('Status:', error.response.status);
-      console.error('Dados:', JSON.stringify(error.response.data, null, 2));
-    } else {
-      console.error('Mensagem:', error.message);
-    }
-    console.error('--- [FIM DO ERRO] ---');
     res.status(500).json({ success: false, error: error.response?.data || { message: error.message } });
   }
 });
 
-// ROTA 2 — Webhook real do Mercado Pago (Segura)
 app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) => {
   console.log('[INFO] Webhook do Mercado Pago recebido e validado.');
   res.status(200).send('Webhook recebido.');
 });
 
-// ROTA DE TESTE TEMPORÁRIA
 app.post('/test-webhook', async (req, res) => {
-  console.log('--- RECEBIDA REQUISIÇÃO NA ROTA DE TESTE ---');
   try {
     const paymentId = req.body.data?.id;
     if (!paymentId) { return res.status(400).send('payment_id ausente.'); }
-    console.log(`[TEST-MP] Buscando pagamento ID: ${paymentId}`);
     const pagamento = await mercadoPagoService.buscarPagamento(paymentId);
-    console.log('[TEST-MP] Pagamento obtido com sucesso.');
     const result = await blingService.criarPedido(pagamento);
-    console.log('[TEST-BLING] Pedido criado com sucesso a partir da rota de teste.');
     res.status(200).json({ success: true, message: "Pedido de teste criado no Bling!", data: result });
   } catch (error) {
-    console.error('--- [ERRO DETALHADO NO TEST-WEBHOOK] ---');
-    if (error.response) {
-      console.error('Status da Resposta:', error.response.status);
-      console.error('Dados da Resposta:', JSON.stringify(error.response.data, null, 2));
-    } else {
-      console.error('Mensagem de Erro Geral:', error.message);
-    }
-    console.error('--- [FIM DO ERRO DETALHADO] ---');
     res.status(500).json({ success: false, error: error.response?.data || { message: error.message } });
   }
 });
 
-// ROTA DE TESTE SIMPLES (GET)
 app.get('/health-check', (req, res) => {
   console.log('[INFO] Rota /health-check (GET) foi acionada.');
   res.status(200).send('Servidor está no ar e a rota GET funciona!');
 });
 
-// ROTA PARA CRIAÇÃO DO CHECKOUT TRANSPARENTE
 app.post('/api/criar-checkout', async (req, res) => {
   console.log('--- REQUISIÇÃO RECEBIDA EM /api/criar-checkout ---');
   try {
     const { sku } = req.body;
     if (!sku) {
-      console.error('[ERRO] SKU do produto não foi fornecido na requisição.');
       return res.status(400).json({ error: 'SKU do produto é obrigatório.' });
     }
-    console.log(`[INFO] SKU recebido: ${sku}`);
     const produto = produtos[sku];
     if (!produto) {
-      console.error(`[ERRO] Produto com SKU '${sku}' não encontrado em nosso catálogo.`);
       return res.status(404).json({ error: 'Produto não encontrado.' });
     }
     console.log(`[INFO] Produto encontrado: ${JSON.stringify(produto)}`);
     console.log('[INFO] Chamando o serviço do Mercado Pago para criar a preferência...');
-    const preferenceId = await mercadoPagoService.criarPreferenciaDePagamento(produto, {});
-    console.log(`[INFO] ID de preferência recebido do serviço: ${preferenceId}`);
-    res.status(200).json({ preferenceId: preferenceId });
+
+    // MODIFICAÇÃO: Capturamos o objeto completo
+    const preferencia = await mercadoPagoService.criarPreferenciaDePagamento(produto, {});
+
+    console.log(`[INFO] Preferência recebida do serviço. ID: ${preferencia.id}`);
+
+    // MODIFICAÇÃO: Devolvemos o ID e a URL de checkout (init_point)
+    res.status(200).json({
+      preferenceId: preferencia.id,
+      init_point: preferencia.init_point
+    });
+
   } catch (error) {
     console.error('[ERRO] Falha ao processar a criação de checkout:', error);
     res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 });
 
-// =================================================================
-// NOVA ESTRUTURA DE INICIALIZAÇÃO ROBUSTA
-// =================================================================
-
 const startServer = async () => {
   try {
-    // 1. Tenta inicializar os serviços externos PRIMEIRO.
     console.log('[INIT] Tentando inicializar serviço do Bling...');
     await blingService.inicializarServicoBling();
     console.log('[INIT] Serviço do Bling inicializado com sucesso.');
   } catch (error) {
-    // Se o Bling falhar, apenas logamos o erro, mas NÃO impedimos o servidor de iniciar.
     console.error('[INIT] FALHA CRÍTICA AO INICIAR O SERVIÇO DO BLING.', error.message);
-    console.log('[INIT] O servidor continuará a ser executado em modo degradado (sem integração Bling).');
+    console.log('[INIT] O servidor continuará a ser executado em modo degradado.');
   }
 
-  // 2. Depois de lidar com os serviços, INICIA o servidor HTTP.
-  // Isso garante que o app.listen() sempre será chamado.
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[INIT] Servidor HTTP pronto e ouvindo na porta ${PORT}.`);
@@ -171,5 +143,4 @@ const startServer = async () => {
   });
 };
 
-// Inicia todo o processo.
 startServer();
