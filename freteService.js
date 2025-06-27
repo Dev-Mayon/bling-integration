@@ -2,61 +2,74 @@
 
 const { default: axios } = require('axios');
 
+// Verificamos se o token foi configurado no ambiente
+if (!process.env.FRENET_TOKEN) {
+    console.error("[Frenet] FATAL: O token da API da Frenet não foi configurado na variável de ambiente FRENET_TOKEN.");
+}
+
 /**
- * Calcula o preço e o prazo do frete usando a BrasilAPI com header explícito.
+ * Calcula o preço e o prazo do frete usando a API da Frenet.
  * @param {object} dadosFrete Contém os dados para o cálculo.
  * @returns {Promise<object>} Um objeto com o valor e o prazo do frete.
  */
 async function calcularFrete(dadosFrete) {
-    console.log('[Frete Service] Iniciando cálculo com BrasilAPI e Header Fixo.');
+    console.log('[Frenet] Iniciando cálculo de frete.');
 
+    // Montamos o corpo da requisição conforme a documentação da Frenet
     const payload = {
-        nCdServico: '04510',
-        sCepOrigem: dadosFrete.cepOrigem.replace(/\D/g, ''),
-        sCepDestino: dadosFrete.cepDestino.replace(/\D/g, ''),
-        nVlPeso: String(dadosFrete.peso),
-        nCdFormato: 1,
-        nVlComprimento: String(Math.max(16, dadosFrete.comprimento)),
-        nVlAltura: String(Math.max(2, dadosFrete.altura)),
-        nVlLargura: String(Math.max(11, dadosFrete.largura)),
-        nVlDiametro: '0',
-        sCdMaoPropria: 'N',
-        nVlValorDeclarado: String(dadosFrete.valor),
-        sCdAvisoRecebimento: 'N',
+        // CEP de origem fixo. Se o seu cliente usar um diferente, altere aqui.
+        SellerCEP: dadosFrete.cepOrigem.replace(/\D/g, ''),
+        RecipientCEP: dadosFrete.cepDestino.replace(/\D/g, ''),
+        ShipmentInvoiceValue: dadosFrete.valor,
+        ShippingItemArray: [
+            {
+                Height: Math.max(2, dadosFrete.altura),
+                Length: Math.max(16, dadosFrete.comprimento),
+                Width: Math.max(11, dadosFrete.largura),
+                Weight: dadosFrete.peso,
+                Quantity: 1
+            }
+        ],
     };
 
     try {
-        const url = "https://brasilapi.com.br/api/correios/v1/frete";
+        const url = "https://api.frenet.com.br/shipping/quote";
 
-        // ✅ CORREÇÃO APLICADA: Adicionamos o header 'Content-Type'
+        // Fazemos a chamada POST com os headers de autorização corretos
         const response = await axios.post(url, payload, {
             headers: {
-                'Content-Type': 'application/json'
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                // O token da Frenet é passado diretamente no header 'token'
+                'token': process.env.FRENET_TOKEN
             }
         });
 
-        if (response.data && response.data.length > 0) {
-            const resultadoFrete = response.data[0];
+        // A Frenet retorna um array de "ShippingServiceArray"
+        const servicos = response.data.ShippingSevicesArray;
 
-            if (resultadoFrete.erro && resultadoFrete.erro !== "0") {
-                throw new Error(`Erro retornado pelos Correios: ${resultadoFrete.msgErro}`);
-            }
+        // Filtramos para pegar o PAC ("PAC")
+        const pacOption = servicos.find(service => service.ServiceDescription === "PAC");
 
-            const valorNumerico = parseFloat(resultadoFrete.valor.replace(',', '.'));
+        if (pacOption && pacOption.Error === false) {
             const freteFinal = {
-                valor: valorNumerico,
-                prazo: resultadoFrete.prazoEntrega
+                // O valor vem como string, convertemos para número
+                valor: parseFloat(pacOption.ShippingPrice),
+                // O prazo vem em dias, já como string
+                prazo: pacOption.DeliveryTime
             };
-
-            console.log('[Frete Service] Frete REAL calculado com sucesso:', freteFinal);
+            console.log('[Frenet] Frete PAC calculado com sucesso:', freteFinal);
             return freteFinal;
         } else {
-            throw new Error("A API dos Correios não retornou um resultado válido.");
+            // Se o PAC não estiver disponível, ou der erro, usamos o fallback
+            throw new Error(pacOption ? pacOption.Msg : "Nenhuma opção PAC encontrada na resposta da Frenet.");
         }
+
     } catch (error) {
-        const errorMessage = error.response?.data?.errors?.[0]?.message || error.message;
-        console.error("[Frete Service] Erro ao calcular frete:", errorMessage);
-        return { valor: 30.00, prazo: "7" };
+        const errorMessage = error.response?.data?.message || error.message;
+        console.error("[Frenet] Erro ao calcular frete:", errorMessage);
+        // Nosso plano B de sempre, para garantir que a venda não pare
+        return { valor: 35.00, prazo: "7" };
     }
 }
 
