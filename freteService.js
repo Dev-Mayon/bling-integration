@@ -1,59 +1,61 @@
 // freteService.js
 
-// Importamos a biblioteca especializada
-const Correios = require('node-correios');
-const correios = new Correios();
+const { default: axios } = require('axios');
 
 /**
- * Calcula o preço e o prazo do frete usando a biblioteca 'node-correios'.
- * @param {object} dadosFrete Contém cepOrigem, cepDestino, peso, etc.
+ * Calcula o preço e o prazo do frete usando a BrasilAPI com header explícito.
+ * @param {object} dadosFrete Contém os dados para o cálculo.
  * @returns {Promise<object>} Um objeto com o valor e o prazo do frete.
  */
 async function calcularFrete(dadosFrete) {
-    console.log('[Frete Service] Iniciando cálculo com a biblioteca node-correios.');
+    console.log('[Frete Service] Iniciando cálculo com BrasilAPI e Header Fixo.');
 
-    // Montamos o objeto de argumentos exatamente como a biblioteca espera
-    const args = {
-        // 04510 = PAC, 04014 = SEDEX
+    const payload = {
+        nCdServico: '04510',
         sCepOrigem: dadosFrete.cepOrigem.replace(/\D/g, ''),
         sCepDestino: dadosFrete.cepDestino.replace(/\D/g, ''),
         nVlPeso: String(dadosFrete.peso),
-        nCdFormato: 1, // 1 = caixa/pacote
-        nVlComprimento: Math.max(16, dadosFrete.comprimento),
-        nVlAltura: Math.max(2, dadosFrete.altura),
-        nVlLargura: Math.max(11, dadosFrete.largura),
-        nCdServico: ['04510'], // Podemos pedir múltiplos serviços, pegaremos o primeiro
-        nVlDiametro: 0,
-        nVlValorDeclarado: dadosFrete.valor
+        nCdFormato: 1,
+        nVlComprimento: String(Math.max(16, dadosFrete.comprimento)),
+        nVlAltura: String(Math.max(2, dadosFrete.altura)),
+        nVlLargura: String(Math.max(11, dadosFrete.largura)),
+        nVlDiametro: '0',
+        sCdMaoPropria: 'N',
+        nVlValorDeclarado: String(dadosFrete.valor),
+        sCdAvisoRecebimento: 'N',
     };
 
     try {
-        // Chamamos a função da biblioteca
-        const resultado = await correios.calcPrecoPrazo(args);
+        const url = "https://brasilapi.com.br/api/correios/v1/frete";
 
-        console.log('[Frete Service] Resposta dos Correios:', resultado);
+        // ✅ CORREÇÃO APLICADA: Adicionamos o header 'Content-Type'
+        const response = await axios.post(url, payload, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
 
-        if (resultado && resultado[0] && resultado[0].Valor) {
-            const freteCalculado = resultado[0];
+        if (response.data && response.data.length > 0) {
+            const resultadoFrete = response.data[0];
 
-            // Convertemos o valor que vem como string com vírgula ('27,80') para número
-            const valorNumerico = parseFloat(freteCalculado.Valor.replace(',', '.'));
+            if (resultadoFrete.erro && resultadoFrete.erro !== "0") {
+                throw new Error(`Erro retornado pelos Correios: ${resultadoFrete.msgErro}`);
+            }
 
+            const valorNumerico = parseFloat(resultadoFrete.valor.replace(',', '.'));
             const freteFinal = {
                 valor: valorNumerico,
-                prazo: freteCalculado.PrazoEntrega
+                prazo: resultadoFrete.prazoEntrega
             };
 
             console.log('[Frete Service] Frete REAL calculado com sucesso:', freteFinal);
             return freteFinal;
         } else {
-            // Se a resposta não vier como esperado
-            throw new Error('Formato de resposta inesperado dos Correios.');
+            throw new Error("A API dos Correios não retornou um resultado válido.");
         }
-
     } catch (error) {
-        console.error("[Frete Service] Erro ao calcular frete:", error);
-        // Em último caso, retornamos o valor de fallback para não quebrar o checkout
+        const errorMessage = error.response?.data?.errors?.[0]?.message || error.message;
+        console.error("[Frete Service] Erro ao calcular frete:", errorMessage);
         return { valor: 30.00, prazo: "7" };
     }
 }
