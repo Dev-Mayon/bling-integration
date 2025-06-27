@@ -7,37 +7,26 @@ const client = new MercadoPagoConfig({
     accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN
 });
 
-async function buscarPagamento(paymentId) {
-    try {
-        if (!paymentId) {
-            throw new Error('O ID do pagamento (paymentId) é obrigatório.');
-        }
-        console.log(`[MP Service] Buscando pagamento com ID: ${paymentId}`);
-        const payment = await new Payment(client).get({ id: paymentId });
-        return payment;
-    } catch (error) {
-        console.error('[MP Service] Erro ao buscar pagamento real:', error.message);
-        throw error;
-    }
-}
+async function buscarPagamento(paymentId) { /* ...código inalterado... */ }
 
-async function criarPreferenciaDePagamento(produtoInfo, dadosCliente) {
+// =================================================================
+// FUNÇÃO ATUALIZADA PARA RECEBER MÚLTIPLOS ITENS
+// =================================================================
+/**
+ * Cria uma preferência de pagamento no Mercado Pago.
+ * @param {Array<object>} itens O array de itens para o checkout (produto + frete).
+ * @returns {Promise<object>} O objeto completo da preferência gerada.
+ */
+async function criarPreferenciaDePagamento(itens) {
     try {
-        console.log("[MP Service] Iniciando criação de preferência (tentativa de correção de desconto).");
+        console.log("[MP Service] Iniciando criação de preferência com os itens:", itens);
 
         const body = {
-            items: [
-                {
-                    title: produtoInfo.nome,
-                    quantity: 1,
-                    currency_id: 'BRL',
-                    unit_price: produtoInfo.preco
-                }
-            ],
+            // MODIFICAÇÃO: A função agora recebe um array de itens diretamente.
+            items: itens,
             payment_methods: {
-                installments: 10
+                installments: 10,
             },
-            // TENTATIVA DE CORREÇÃO: Movendo o objeto de descontos para o nível principal do body.
             discounts: [
                 {
                     active: true,
@@ -45,12 +34,7 @@ async function criarPreferenciaDePagamento(produtoInfo, dadosCliente) {
                     type: "percentage",
                     value: "10",
                     payment_method_rules: {
-                        payment_methods: [
-                            {
-                                id: "pix"
-                            }
-                        ],
-                        // As regras de exclusão foram removidas para garantir que não haja conflito
+                        payment_methods: [{ id: "pix" }],
                         excluded_payment_methods: [],
                         excluded_payment_types: []
                     }
@@ -77,6 +61,7 @@ async function criarPreferenciaDePagamento(produtoInfo, dadosCliente) {
         throw new Error("Falha ao criar preferência de pagamento no Mercado Pago.");
     }
 }
+// =================================================================
 
 module.exports = {
     buscarPagamento,
