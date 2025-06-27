@@ -134,22 +134,32 @@ app.post('/api/criar-checkout', async (req, res) => {
   }
 });
 
+// CÓDIGO PARA SUBSTITUIR O FINAL DO SEU index.js
+
 const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   try {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`[INIT] Servidor rodando na porta ${PORT}`);
-    });
-
+    // 1. Tenta inicializar os serviços externos PRIMEIRO.
+    console.log('[INIT] Tentando inicializar serviço do Bling...');
     await blingService.inicializarServicoBling();
     console.log('[INIT] Serviço do Bling inicializado com sucesso.');
   } catch (error) {
-    console.error('[INIT] Erro ao iniciar servidor:', error.message);
-    process.exit(1);
+    // Se o Bling falhar, apenas logamos o erro, mas NÃO impedimos o servidor de iniciar.
+    console.error('[INIT] FALHA CRÍTICA AO INICIAR O SERVIÇO DO BLING.', error.message);
+    console.log('[INIT] O servidor continuará a ser executado em modo degradado (sem integração Bling).');
   }
+
+  // 2. Depois de lidar com os serviços, INICIA o servidor HTTP.
+  // Isso garante que o app.listen() sempre será chamado, o que é crucial para o Render.
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[INIT] Servidor HTTP pronto e ouvindo na porta ${PORT}.`);
+    console.log(`[INIT] Aplicação disponível publicamente.`);
+  });
 };
 
+// Inicia todo o processo.
 startServer();
+
 
 
