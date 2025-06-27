@@ -1,62 +1,60 @@
-// CÓDIGO PARA freteService.js
+// freteService.js
 
-const { default: axios } = require('axios');
+// Importamos a biblioteca especializada
+const Correios = require('node-correios');
+const correios = new Correios();
 
 /**
- * Calcula o preço e o prazo do frete usando a API pública dos Correios.
+ * Calcula o preço e o prazo do frete usando a biblioteca 'node-correios'.
  * @param {object} dadosFrete Contém cepOrigem, cepDestino, peso, etc.
  * @returns {Promise<object>} Um objeto com o valor e o prazo do frete.
  */
 async function calcularFrete(dadosFrete) {
-    console.log('[Frete Service] Iniciando cálculo de frete (Versão Final e Correta) com:', dadosFrete);
+    console.log('[Frete Service] Iniciando cálculo com a biblioteca node-correios.');
 
-    // Códigos de serviço dos Correios: 04014 = SEDEX, 04510 = PAC
-    const codServico = '04510'; // Usaremos PAC como padrão
-
-    const payload = {
-        nCdServico: codServico,
+    // Montamos o objeto de argumentos exatamente como a biblioteca espera
+    const args = {
+        // 04510 = PAC, 04014 = SEDEX
         sCepOrigem: dadosFrete.cepOrigem.replace(/\D/g, ''),
         sCepDestino: dadosFrete.cepDestino.replace(/\D/g, ''),
         nVlPeso: String(dadosFrete.peso),
-        nCdFormato: 1,
-        nVlComprimento: String(Math.max(16, dadosFrete.comprimento)),
-        nVlAltura: String(Math.max(2, dadosFrete.altura)),
-        nVlLargura: String(Math.max(11, dadosFrete.largura)),
-        nVlDiametro: '0',
-        sCdMaoPropria: 'N',
-        nVlValorDeclarado: String(dadosFrete.valor),
-        sCdAvisoRecebimento: 'N',
+        nCdFormato: 1, // 1 = caixa/pacote
+        nVlComprimento: Math.max(16, dadosFrete.comprimento),
+        nVlAltura: Math.max(2, dadosFrete.altura),
+        nVlLargura: Math.max(11, dadosFrete.largura),
+        nCdServico: ['04510'], // Podemos pedir múltiplos serviços, pegaremos o primeiro
+        nVlDiametro: 0,
+        nVlValorDeclarado: dadosFrete.valor
     };
 
     try {
-        // CORRETO: Método POST na URL /v1/frete
-        const url = "https://brasilapi.com.br/api/correios/v1/frete";
-        const response = await axios.post(url, payload);
+        // Chamamos a função da biblioteca
+        const resultado = await correios.calcPrecoPrazo(args);
 
-        if (response.data && response.data.length > 0) {
-            const resultadoFrete = response.data[0];
+        console.log('[Frete Service] Resposta dos Correios:', resultado);
 
-            if (resultadoFrete.erro && resultadoFrete.erro !== "0") {
-                throw new Error(`Erro dos Correios: ${resultadoFrete.msgErro}`);
-            }
+        if (resultado && resultado[0] && resultado[0].Valor) {
+            const freteCalculado = resultado[0];
 
-            console.log(`[Frete Service] Resposta da API dos Correios:`, resultadoFrete);
+            // Convertemos o valor que vem como string com vírgula ('27,80') para número
+            const valorNumerico = parseFloat(freteCalculado.Valor.replace(',', '.'));
 
-            const valorNumerico = parseFloat(resultadoFrete.valor.replace(',', '.'));
             const freteFinal = {
                 valor: valorNumerico,
-                prazo: resultadoFrete.prazoEntrega
+                prazo: freteCalculado.PrazoEntrega
             };
 
-            console.log('[Frete Service] Retornando frete REAL:', freteFinal);
+            console.log('[Frete Service] Frete REAL calculado com sucesso:', freteFinal);
             return freteFinal;
         } else {
-            throw new Error("A API dos Correios não retornou um resultado válido.");
+            // Se a resposta não vier como esperado
+            throw new Error('Formato de resposta inesperado dos Correios.');
         }
+
     } catch (error) {
-        const errorMessage = error.response?.data?.errors?.[0]?.message || error.message;
-        console.error("[Frete Service] Erro ao calcular frete real:", errorMessage);
-        return { valor: 30.00, prazo: "7" }; // Nosso plano B
+        console.error("[Frete Service] Erro ao calcular frete:", error);
+        // Em último caso, retornamos o valor de fallback para não quebrar o checkout
+        return { valor: 30.00, prazo: "7" };
     }
 }
 
