@@ -8,36 +8,34 @@ const { default: axios } = require('axios');
  * @returns {Promise<object>} Um objeto com o valor e o prazo do frete.
  */
 async function calcularFrete(dadosFrete) {
-    console.log('[Frete Service] Iniciando cálculo de frete (Tentativa Final) com:', dadosFrete);
+    console.log('[Frete Service] Iniciando cálculo de frete (Versão Final e Correta) com:', dadosFrete);
 
     // Códigos de serviço dos Correios: 04014 = SEDEX, 04510 = PAC
     const codServico = '04510'; // Usaremos PAC como padrão
 
-    // A API espera um formato de payload muito específico.
     const payload = {
         nCdServico: codServico,
-        sCepOrigem: dadosFrete.cepOrigem.replace(/\D/g, ''), // Remove tudo que não for dígito
+        sCepOrigem: dadosFrete.cepOrigem.replace(/\D/g, ''),
         sCepDestino: dadosFrete.cepDestino.replace(/\D/g, ''),
-        nVlPeso: String(dadosFrete.peso), // Peso precisa ser string
-        nCdFormato: 1, // 1 = Caixa/Pacote
-        nVlComprimento: String(Math.max(16, dadosFrete.comprimento)), // Precisa ser string
-        nVlAltura: String(Math.max(2, dadosFrete.altura)), // Precisa ser string
-        nVlLargura: String(Math.max(11, dadosFrete.largura)), // Precisa ser string
-        nVlDiametro: '0', // Diâmetro zero para caixas
-        sCdMaoPropria: 'N', // N = Não
-        nVlValorDeclarado: String(dadosFrete.valor), // Precisa ser string
-        sCdAvisoRecebimento: 'N', // N = Não
+        nVlPeso: String(dadosFrete.peso),
+        nCdFormato: 1,
+        nVlComprimento: String(Math.max(16, dadosFrete.comprimento)),
+        nVlAltura: String(Math.max(2, dadosFrete.altura)),
+        nVlLargura: String(Math.max(11, dadosFrete.largura)),
+        nVlDiametro: '0',
+        sCdMaoPropria: 'N',
+        nVlValorDeclarado: String(dadosFrete.valor),
+        sCdAvisoRecebimento: 'N',
     };
 
     try {
-        // CORREÇÃO FINAL: Usamos a URL da v1 e o método POST
+        // CORRETO: Método POST na URL /v1/frete
         const url = "https://brasilapi.com.br/api/correios/v1/frete";
         const response = await axios.post(url, payload);
 
         if (response.data && response.data.length > 0) {
             const resultadoFrete = response.data[0];
 
-            // A API pode retornar um código de erro interno dos Correios
             if (resultadoFrete.erro && resultadoFrete.erro !== "0") {
                 throw new Error(`Erro dos Correios: ${resultadoFrete.msgErro}`);
             }
@@ -56,10 +54,9 @@ async function calcularFrete(dadosFrete) {
             throw new Error("A API dos Correios não retornou um resultado válido.");
         }
     } catch (error) {
-        // Captura erros da chamada ou erros internos dos Correios
         const errorMessage = error.response?.data?.errors?.[0]?.message || error.message;
         console.error("[Frete Service] Erro ao calcular frete real:", errorMessage);
-        return { valor: 30.00, prazo: "7" }; // Nosso plano B, sempre confiável
+        return { valor: 30.00, prazo: "7" }; // Nosso plano B
     }
 }
 
