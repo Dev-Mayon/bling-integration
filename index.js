@@ -1,9 +1,10 @@
-// CÓDIGO PARA index.js
+// CÓDIGO ATUALIZADO PARA index.js
 
 require('dotenv').config();
 
 const express = require('express');
 const crypto = require('crypto');
+const cors = require('cors'); // <-- 1. IMPORTAMOS A BIBLIOTECA CORS
 const app = express();
 
 const blingService = require('./blingService');
@@ -17,6 +18,7 @@ const produtos = {
 };
 
 app.use(express.json());
+app.use(cors()); // <-- 2. HABILITAMOS O CORS PARA TODAS AS ROTAS
 
 // Middlewares e outras rotas inalteradas...
 function verifyMercadoPagoSignature(req, res, next) { /* ...código inalterado... */ }
@@ -24,12 +26,11 @@ app.post('/mercadopago/webhook', verifyMercadoPagoSignature, async (req, res) =>
 
 
 // =================================================================
-// ROTA DE CHECKOUT ATUALIZADA PARA CALCULAR FRETE
+// ROTA DE CHECKOUT (NÃO PRECISA DE ALTERAÇÃO)
 // =================================================================
 app.post('/api/criar-checkout', async (req, res) => {
   console.log('--- REQUISIÇÃO RECEBIDA EM /api/criar-checkout ---');
   try {
-    // 1. Recebemos o SKU e agora também o CEP do cliente
     const { sku, cep } = req.body;
     if (!sku || !cep) {
       return res.status(400).json({ error: 'SKU do produto e CEP do cliente são obrigatórios.' });
@@ -41,7 +42,6 @@ app.post('/api/criar-checkout', async (req, res) => {
     }
     console.log(`[INFO] Produto: ${produto.nome}, CEP Destino: ${cep}`);
 
-    // 2. Montamos os dados para o cálculo do frete
     const dadosFrete = {
       cepOrigem: "51021-150", // CEP de origem fixo
       cepDestino: cep,
@@ -52,20 +52,18 @@ app.post('/api/criar-checkout', async (req, res) => {
       valor: produto.preco
     };
 
-    // 3. Chamamos o nosso serviço de frete (que ainda está simulado)
     console.log('[INFO] Calculando o frete...');
     const frete = await freteService.calcularFrete(dadosFrete);
     console.log(`[INFO] Frete calculado: R$ ${frete.valor}`);
 
-    // 4. Preparamos a lista de itens para o Mercado Pago
     const itensParaCheckout = [
-      { // O produto principal
+      {
         title: produto.nome,
         quantity: 1,
         currency_id: 'BRL',
         unit_price: produto.preco
       },
-      { // O custo do frete como um item separado
+      {
         title: "Frete",
         quantity: 1,
         currency_id: 'BRL',
@@ -73,7 +71,6 @@ app.post('/api/criar-checkout', async (req, res) => {
       }
     ];
 
-    // 5. Criamos a preferência de pagamento com a lista de itens
     console.log('[INFO] Chamando o serviço do Mercado Pago com produto + frete...');
     const preferencia = await mercadoPagoService.criarPreferenciaDePagamento(itensParaCheckout);
 
@@ -88,32 +85,26 @@ app.post('/api/criar-checkout', async (req, res) => {
   }
 });
 
-// CÓDIGO PARA SUBSTITUIR O FINAL DO SEU index.js
+// O resto do código permanece o mesmo...
 
 const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   try {
-    // 1. Tenta inicializar os serviços externos PRIMEIRO.
     console.log('[INIT] Tentando inicializar serviço do Bling...');
     await blingService.inicializarServicoBling();
     console.log('[INIT] Serviço do Bling inicializado com sucesso.');
   } catch (error) {
-    // Se o Bling falhar, apenas logamos o erro, mas NÃO impedimos o servidor de iniciar.
     console.error('[INIT] FALHA CRÍTICA AO INICIAR O SERVIÇO DO BLING.', error.message);
     console.log('[INIT] O servidor continuará a ser executado em modo degradado (sem integração Bling).');
   }
 
-  // 2. Depois de lidar com os serviços, INICIA o servidor HTTP.
-  // Isso garante que o app.listen() sempre será chamado, o que é crucial para o Render.
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[INIT] Servidor HTTP pronto e ouvindo na porta ${PORT}.`);
     console.log(`[INIT] Aplicação disponível publicamente.`);
   });
 };
 
-// Inicia todo o processo.
 startServer();
-
 
 
