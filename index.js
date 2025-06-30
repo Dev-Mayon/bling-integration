@@ -14,7 +14,37 @@ const freteService = require('./freteService');
 const produtos = {
   '+V1': { nome: 'Kit 1 Unidade Mais Vigor', preco: 99.00, peso_kg: 0.5, comprimento_cm: 20, altura_cm: 15, largura_cm: 10 },
   '+V3': { nome: 'Kit 3 Unidades Mais Vigor', preco: 229.00, peso_kg: 1.2, comprimento_cm: 25, altura_cm: 20, largura_cm: 15 },
-  '+V5': { nome: 'Kit 5 Unidades Mais Vigor', preco: 349.00, peso_kg: 2.0, comprimento_cm: 30, altura_cm: 25, largura_cm: 20 }
+  '+V5': { nome: 'Kit 5 Unidades Mais Vigor', preco: 349.00, peso_kg: 2.0, comprimento_cm: 30, altura_cm: 25, largura_cm: 20 },
+  // ==============================================================================
+  // ✅ PRODUTOS "TRANQUILLIUM" COM MEDIDAS ATUALIZADAS
+  // ==============================================================================
+  '+TQ1': {
+    nome: 'Tranquillium 1',
+    sku_bling: 'Traq1', // SKU real do Bling
+    preco: 88.00,
+    peso_kg: 0.166, // Usando o peso bruto
+    comprimento_cm: 20.00, // Profundidade do Bling
+    altura_cm: 15.00,
+    largura_cm: 10.00
+  },
+  '+TQ3': {
+    nome: 'Tranquillium 3',
+    sku_bling: 'Traq3', // SKU real do Bling
+    preco: 198.00,
+    peso_kg: 0.366, // Usando o peso bruto
+    comprimento_cm: 25.00, // Profundidade do Bling
+    altura_cm: 20.00,
+    largura_cm: 15.00
+  },
+  '+TQ5': {
+    nome: 'Tranquillium 5',
+    sku_bling: 'Traq5', // SKU real do Bling
+    preco: 298.00,
+    peso_kg: 0.566, // Usando o peso bruto
+    comprimento_cm: 30.00, // Profundidade do Bling
+    altura_cm: 25.00,
+    largura_cm: 20.00
+  }
 };
 
 app.use(express.json());
