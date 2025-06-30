@@ -12,34 +12,62 @@ const mercadoPagoService = require('./mercadoPagoService');
 const freteService = require('./freteService');
 
 const produtos = {
-  // Produtos existentes (Mais Vigor) - Adicionado SKU do Bling para consistência
-  '+V1': { nome: 'Kit 1 Unidade Mais Vigor', sku_bling: '+V1', preco: 99.00, peso_kg: 0.5, comprimento_cm: 20, altura_cm: 15, largura_cm: 10 },
-  '+V3': { nome: 'Kit 3 Unidades Mais Vigor', sku_bling: '+V3', preco: 229.00, peso_kg: 1.2, comprimento_cm: 25, altura_cm: 20, largura_cm: 15 },
-  '+V5': { nome: 'Kit 5 Unidades Mais Vigor', sku_bling: '+V5', preco: 349.00, peso_kg: 2.0, comprimento_cm: 30, altura_cm: 25, largura_cm: 20 },
+  // ==============================================================================
+  // ✅ PRODUTOS "MAIS VIGOR" COM PREÇOS FINAIS ATUALIZADOS
+  // ==============================================================================
+  '+V1': { 
+    nome: 'Mais Vigor', 
+    sku_bling: '+V1', 
+    preco: 89.10, // Preço à vista atualizado
+    peso_kg: 0.166,
+    comprimento_cm: 6.00,
+    altura_cm: 11.00,
+    largura_cm: 10.00
+  },
+  '+V3': { 
+    nome: 'Kit 3 Unidades Mais Vigor', 
+    sku_bling: '+V3', 
+    preco: 206.10, // Preço à vista atualizado
+    peso_kg: 1.2, 
+    comprimento_cm: 25, 
+    altura_cm: 20, 
+    largura_cm: 15 
+  },
+  '+V5': { 
+    nome: 'Kit 5 Unidades Mais Vigor', 
+    sku_bling: '+V5', 
+    preco: 314.91, // Preço à vista atualizado
+    peso_kg: 2.0, 
+    comprimento_cm: 30, 
+    altura_cm: 25, 
+    largura_cm: 20 
+  },
 
-  // Produtos "Tranquillium"
-  '+TQ1': {
-    nome: 'Tranquillium 1',
+  // ==============================================================================
+  // ✅ PRODUTOS "TRANQUILLIUM" COM PREÇOS FINAIS ATUALIZADOS
+  // ==============================================================================
+  '+TQ1': { 
+    nome: 'Tranquillium 1', 
     sku_bling: 'Traq1',
-    preco: 88.00,
+    preco: 62.10, // Preço à vista atualizado
     peso_kg: 0.166,
     comprimento_cm: 20.00,
     altura_cm: 15.00,
     largura_cm: 10.00
   },
-  '+TQ3': {
-    nome: 'Tranquillium 3',
+  '+TQ3': { 
+    nome: 'Tranquillium 3', 
     sku_bling: 'Traq3',
-    preco: 198.00,
+    preco: 143.10, // Preço à vista atualizado
     peso_kg: 0.366,
     comprimento_cm: 25.00,
     altura_cm: 20.00,
     largura_cm: 15.00
   },
-  '+TQ5': {
-    nome: 'Tranquillium 5',
+  '+TQ5': { 
+    nome: 'Tranquillium 5', 
     sku_bling: 'Traq5',
-    preco: 298.00,
+    preco: 215.10, // Preço à vista atualizado
     peso_kg: 0.566,
     comprimento_cm: 30.00,
     altura_cm: 25.00,
@@ -54,12 +82,12 @@ app.use(cors());
 app.post('/mercadopago/webhook', async (req, res) => {
   console.log('--- WEBHOOK DO MERCADO PAGO RECEBIDO ---');
   const { type, data } = req.body;
-
+  
   if (type === 'payment') {
     console.log(`[Webhook] Notificação de pagamento recebida. ID: ${data.id}`);
     try {
       const pagamento = await mercadoPagoService.buscarPagamento(data.id);
-
+      
       if (pagamento && pagamento.status === 'approved') {
         console.log(`[Webhook] PAGAMENTO APROVADO! ID: ${pagamento.id}. Iniciando criação do pedido no Bling...`);
         const pedidoBling = await blingService.criarPedido(pagamento);
@@ -103,10 +131,9 @@ app.post('/api/criar-checkout', async (req, res) => {
     const frete = await freteService.calcularFrete(dadosFrete);
     console.log(`[INFO] Frete calculado: R$ ${frete.valor}`);
 
-    // ✅ CORREÇÃO FINAL APLICADA AQUI
     const itensParaCheckout = [
       {
-        id: produto.sku_bling, // Adicionámos o SKU do Bling como 'id' do item
+        id: produto.sku_bling,
         title: produto.nome,
         quantity: 1,
         currency_id: 'BRL',
@@ -145,7 +172,7 @@ const startServer = async () => {
     console.error('[INIT] FALHA CRÍTICA AO INICIAR O SERVIÇO DO BLING.', error.message);
     console.log('[INIT] O servidor continuará a ser executado em modo degradado.');
   }
-
+  
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[INIT] Servidor HTTP pronto e ouvindo na porta ${PORT}.`);
   });
