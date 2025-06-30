@@ -13,9 +13,9 @@ const freteService = require('./freteService');
 
 const produtos = {
   // Produtos existentes (Mais Vigor) - Adicionado SKU do Bling para consistência
-  '+V1': { nome: 'Kit 1 Unidade Mais Vigor', sku_bling: 'MV01', preco: 99.00, peso_kg: 0.5, comprimento_cm: 20, altura_cm: 15, largura_cm: 10 },
-  '+V3': { nome: 'Kit 3 Unidades Mais Vigor', sku_bling: 'MV03', preco: 229.00, peso_kg: 1.2, comprimento_cm: 25, altura_cm: 20, largura_cm: 15 },
-  '+V5': { nome: 'Kit 5 Unidades Mais Vigor', sku_bling: 'MV05', preco: 349.00, peso_kg: 2.0, comprimento_cm: 30, altura_cm: 25, largura_cm: 20 },
+  '+V1': { nome: 'Kit 1 Unidade Mais Vigor', sku_bling: '+V1', preco: 99.00, peso_kg: 0.5, comprimento_cm: 20, altura_cm: 15, largura_cm: 10 },
+  '+V3': { nome: 'Kit 3 Unidades Mais Vigor', sku_bling: '+V3', preco: 229.00, peso_kg: 1.2, comprimento_cm: 25, altura_cm: 20, largura_cm: 15 },
+  '+V5': { nome: 'Kit 5 Unidades Mais Vigor', sku_bling: '+V5', preco: 349.00, peso_kg: 2.0, comprimento_cm: 30, altura_cm: 25, largura_cm: 20 },
 
   // Produtos "Tranquillium"
   '+TQ1': {
