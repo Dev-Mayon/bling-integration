@@ -13,12 +13,15 @@ const freteService = require('./freteService');
 
 const produtos = {
   // ==============================================================================
-  // ✅ PRODUTOS "MAIS VIGOR" COM PREÇOS FINAIS ATUALIZADOS
+  // ✅ PREÇOS ATUALIZADOS PARA OS VALORES "CHEIOS" (SEM DESCONTO)
+  // O desconto de PIX será aplicado pelo Mercado Pago no checkout.
   // ==============================================================================
+  
+  // Produtos "Mais Vigor"
   '+V1': { 
     nome: 'Mais Vigor', 
     sku_bling: '+V1', 
-    preco: 89.10, // Preço à vista atualizado
+    preco: 99.00, // Preço cheio
     peso_kg: 0.166,
     comprimento_cm: 6.00,
     altura_cm: 11.00,
@@ -27,7 +30,7 @@ const produtos = {
   '+V3': { 
     nome: 'Kit 3 Unidades Mais Vigor', 
     sku_bling: '+V3', 
-    preco: 206.10, // Preço à vista atualizado
+    preco: 229.00, // Preço cheio
     peso_kg: 1.2, 
     comprimento_cm: 25, 
     altura_cm: 20, 
@@ -36,20 +39,18 @@ const produtos = {
   '+V5': { 
     nome: 'Kit 5 Unidades Mais Vigor', 
     sku_bling: '+V5', 
-    preco: 314.91, // Preço à vista atualizado
+    preco: 349.00, // Preço cheio
     peso_kg: 2.0, 
     comprimento_cm: 30, 
     altura_cm: 25, 
     largura_cm: 20 
   },
 
-  // ==============================================================================
-  // ✅ PRODUTOS "TRANQUILLIUM" COM PREÇOS FINAIS ATUALIZADOS
-  // ==============================================================================
+  // Produtos "Tranquillium"
   '+TQ1': { 
     nome: 'Tranquillium 1', 
     sku_bling: 'Traq1',
-    preco: 62.10, // Preço à vista atualizado
+    preco: 69.00, // Preço cheio (estimado, ajuste se necessário)
     peso_kg: 0.166,
     comprimento_cm: 20.00,
     altura_cm: 15.00,
@@ -58,7 +59,7 @@ const produtos = {
   '+TQ3': { 
     nome: 'Tranquillium 3', 
     sku_bling: 'Traq3',
-    preco: 143.10, // Preço à vista atualizado
+    preco: 159.00, // Preço cheio
     peso_kg: 0.366,
     comprimento_cm: 25.00,
     altura_cm: 20.00,
@@ -67,7 +68,7 @@ const produtos = {
   '+TQ5': { 
     nome: 'Tranquillium 5', 
     sku_bling: 'Traq5',
-    preco: 215.10, // Preço à vista atualizado
+    preco: 239.00, // Preço cheio
     peso_kg: 0.566,
     comprimento_cm: 30.00,
     altura_cm: 25.00,
@@ -137,7 +138,7 @@ app.post('/api/criar-checkout', async (req, res) => {
         title: produto.nome,
         quantity: 1,
         currency_id: 'BRL',
-        unit_price: produto.preco
+        unit_price: produto.preco // Agora envia o preço CHEIO
       },
       {
         title: "Frete",
