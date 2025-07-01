@@ -1,4 +1,4 @@
-// CÓDIGO DEFINITIVO E CORRIGIDO PARA index.js
+// CÓDIGO FINAL COMPLETO PARA index.js (COM BANCO DE CUPONS)
 
 require('dotenv').config();
 
@@ -20,6 +20,17 @@ const produtos = {
   '+TQ3': { nome: 'Tranquillium 3', sku_bling: 'Traq3', preco: 159.00, peso_kg: 0.300, comprimento_cm: 25.00, altura_cm: 20.00, largura_cm: 15.00 },
   '+TQ5': { nome: 'Tranquillium 5', sku_bling: 'Traq5', preco: 239.00, peso_kg: 0.500, comprimento_cm: 30.00, altura_cm: 25.00, largura_cm: 20.00 }
 };
+
+// --- ✅ BANCO DE CUPONS PRÉ-APROVADOS ---
+const CUPONS_VALIDOS = {};
+// Gerando 20 cupons de R$ 10 de desconto (PROMO1 a PROMO20)
+for (let i = 1; i <= 20; i++) {
+  CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 10.00 };
+}
+// Gerando 20 cupons de R$ 20 de desconto (PROMO21 a PROMO40)
+for (let i = 21; i <= 40; i++) {
+  CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 20.00 };
+}
 
 app.use(express.json());
 
@@ -52,8 +63,7 @@ app.post('/mercadopago/webhook', async (req, res) => {
   res.status(200).send('Webhook recebido.');
 });
 
-
-// Rota de consulta de frete (correta, sem alterações)
+// Rota de consulta de frete (sem alterações)
 app.post('/api/consultar-frete', async (req, res) => {
   console.log('--- REQUISIÇÃO RECEBIDA EM /api/consultar-frete ---');
   try {
@@ -84,60 +94,79 @@ app.post('/api/consultar-frete', async (req, res) => {
   }
 });
 
-// Rota para criar a preferência de pagamento (COM A CORREÇÃO)
+// --- ✅ NOVA ROTA SEGURA PARA VALIDAR CUPOM ---
+app.post('/api/validar-cupom', (req, res) => {
+  console.log('--- REQUISIÇÃO RECEBIDA EM /api/validar-cupom ---');
+  let { sku, codigoCupom } = req.body;
+
+  if (!sku || !codigoCupom) {
+    return res.status(400).json({ success: false, mensagem: 'SKU do produto e código do cupom são obrigatórios.' });
+  }
+
+  if (sku) {
+    sku = sku.trim().toUpperCase();
+    if (!sku.startsWith('+')) { sku = '+' + sku; }
+  }
+  codigoCupom = codigoCupom.trim().toUpperCase();
+
+  const produto = produtos[sku];
+  const cupom = CUPONS_VALIDOS[codigoCupom];
+
+  if (!produto) {
+    return res.status(404).json({ success: false, mensagem: 'Produto não encontrado.' });
+  }
+  if (!cupom) {
+    return res.status(200).json({ success: false, mensagem: 'Cupom inválido ou expirado.' });
+  }
+
+  let desconto = cupom.valor;
+  desconto = Math.min(desconto, produto.preco);
+  const precoComDesconto = produto.preco - desconto;
+
+  console.log(`[Cupom] Cupom '${codigoCupom}' validado. Desconto: R$ ${desconto.toFixed(2)}. Preço final: R$ ${precoComDesconto.toFixed(2)}`);
+
+  res.status(200).json({
+    success: true,
+    mensagem: `Cupom aplicado com sucesso!`,
+    precoOriginal: produto.preco,
+    precoComDesconto: parseFloat(precoComDesconto.toFixed(2)),
+    descontoAplicado: parseFloat(desconto.toFixed(2))
+  });
+});
+
+// --- ✅ ROTA DE CHECKOUT ATUALIZADA PARA ACEITAR DESCONTO ---
 app.post('/api/criar-checkout', async (req, res) => {
   console.log('--- REQUISIÇÃO RECEBIDA EM /api/criar-checkout ---');
   try {
-    let { sku, cep, valorFrete } = req.body; // Usamos 'let' para poder modificar
+    let { sku, cep, valorFrete, precoComDesconto } = req.body;
 
-    // ===== PONTO CRÍTICO DA CORREÇÃO FINAL =====
-    // Aplicamos a mesma limpeza de SKU que fizemos na outra rota.
     if (sku) {
       sku = sku.trim().toUpperCase();
-      if (!sku.startsWith('+')) {
-        sku = '+' + sku;
-      }
+      if (!sku.startsWith('+')) { sku = '+' + sku; }
     }
-    // ===========================================
 
-    if (!sku || !cep) {
-      console.error('[API Checkout] Erro: SKU ou CEP não fornecidos.', req.body);
-      return res.status(400).json({ error: 'SKU do produto e CEP do cliente são obrigatórios.' });
+    if (!sku || !cep || !valorFrete) {
+      return res.status(400).json({ error: 'SKU, CEP e valor do frete são obrigatórios.' });
     }
 
     const produto = produtos[sku];
     if (!produto) {
-      console.error(`[API Checkout] Erro: Produto com SKU '${sku}' não encontrado APÓS A LIMPEZA.`);
       return res.status(404).json({ error: 'Produto não encontrado.' });
     }
 
-    console.log(`[INFO] Produto: ${produto.nome}, CEP Destino: ${cep}`);
-
-    // A lógica de frete permanece a mesma
-    let freteFinal;
-    if (valorFrete) {
-      freteFinal = { valor: parseFloat(valorFrete) };
-      console.log(`[INFO] Usando valor de frete pré-selecionado: R$ ${freteFinal.valor}`);
-    } else {
-      // Fallback caso o valor do frete não venha
-      const opcoesDeFrete = await freteService.calcularFrete({
-        cepOrigem: process.env.CEP_ORIGEM, cepDestino: cep, peso: produto.peso_kg,
-        comprimento: produto.comprimento_cm, altura: produto.altura_cm, largura: produto.largura_cm, valor: produto.preco
-      });
-      freteFinal = opcoesDeFrete[0];
-      console.log(`[INFO] Frete calculado na hora (fallback): R$ ${freteFinal.valor}`);
-    }
+    const precoFinalDoProduto = precoComDesconto ? parseFloat(precoComDesconto) : produto.preco;
+    console.log(`[Checkout] Preço final do produto definido como: R$ ${precoFinalDoProduto}`);
 
     const itensParaCheckout = [
-      { id: produto.sku_bling, title: produto.nome, quantity: 1, currency_id: 'BRL', unit_price: produto.preco },
-      { id: 'frete', title: "Frete", quantity: 1, currency_id: 'BRL', unit_price: freteFinal.valor }
+      { id: produto.sku_bling, title: produto.nome, quantity: 1, currency_id: 'BRL', unit_price: precoFinalDoProduto },
+      { id: 'frete', title: "Frete", quantity: 1, currency_id: 'BRL', unit_price: parseFloat(valorFrete) }
     ];
 
     const preferencia = await mercadoPagoService.criarPreferenciaDePagamento(itensParaCheckout);
     res.status(200).json({ preferenceId: preferencia.id, init_point: preferencia.init_point });
 
   } catch (error) {
-    console.error('[ERRO] Falha ao processar a criação de checkout:', error.message, error.stack);
+    console.error('[ERRO] Falha ao criar checkout:', error.message, error.stack);
     res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 });
@@ -157,5 +186,3 @@ const startServer = async () => {
 };
 
 startServer();
-
-
