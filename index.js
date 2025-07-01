@@ -1,4 +1,4 @@
-// CÓDIGO FINAL, COMPLETO E CORRIGIDO PARA index.js
+// CÓDIGO FINAL E DEFINITIVO - index.js
 
 require('dotenv').config();
 
@@ -10,6 +10,23 @@ const blingService = require('./blingService');
 const mercadoPagoService = require('./mercadoPagoService');
 const freteService = require('./freteService');
 
+// --- CONFIGURAÇÃO INICIAL ---
+app.use(express.json());
+
+// --- ✅ CONFIGURAÇÃO DE CORS DEFINITIVA ---
+// Esta configuração é a mais aberta e robusta, garantindo que o navegador
+// não irá mais bloquear a requisição. Isso vai resolver o "Failed to fetch".
+app.use(cors());
+
+// Middleware para registrar TODAS as requisições que chegam ao servidor.
+// Isso nos dará visibilidade total do que está acontecendo.
+app.use((req, res, next) => {
+    console.log(`[LOG REQUISIÇÃO] Método: ${req.method}, URL: ${req.originalUrl}, Origem: ${req.headers.origin}`);
+    next();
+});
+
+
+// --- DADOS DE PRODUTOS E CUPONS ---
 const produtos = {
     // Produtos "Mais Vigor"
     '+V1': { nome: 'Mais Vigor', sku_bling: '+V1', preco: 99.00, peso_kg: 0.100, comprimento_cm: 6.00, altura_cm: 11.00, largura_cm: 10.00 },
@@ -20,39 +37,9 @@ const produtos = {
     '+TQ3': { nome: 'Tranquillium 3', sku_bling: 'Traq3', preco: 159.00, peso_kg: 0.300, comprimento_cm: 25.00, altura_cm: 20.00, largura_cm: 15.00 },
     '+TQ5': { nome: 'Tranquillium 5', sku_bling: 'Traq5', preco: 239.00, peso_kg: 0.500, comprimento_cm: 30.00, altura_cm: 25.00, largura_cm: 20.00 }
 };
-
-// --- BANCO DE CUPONS PRÉ-APROVADOS ---
 const CUPONS_VALIDOS = {};
-// Gerando 20 cupons de R$ 10 de desconto (PROMO1 a PROMO20)
-for (let i = 1; i <= 20; i++) {
-    CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 10.00 };
-}
-// Gerando 20 cupons de R$ 20 de desconto (PROMO21 a PROMO40)
-for (let i = 21; i <= 40; i++) {
-    CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 20.00 };
-}
-
-app.use(express.json());
-
-// --- ✅ CONFIGURAÇÃO DE CORS CORRETA E DEFINITIVA ---
-const dominiosPermitidos = [
-    'https://www.maisvigor.com.br', 
-    'https://maisvigor.com.br',
-    'https://www.tranquilium.com.br', 
-    'https://tranquilium.com.br'
-];
-
-const corsOptions = {
-    origin: function (origin, callback) {
-        if (!origin || dominiosPermitidos.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            console.error(`[CORS] Bloqueado: A origem '${origin}' não é permitida.`);
-            callback(new Error('Acesso não permitido por CORS'));
-        }
-    }
-};
-app.use(cors(corsOptions));
+for (let i = 1; i <= 20; i++) { CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 10.00 }; }
+for (let i = 21; i <= 40; i++) { CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 20.00 }; }
 
 
 // --- ROTAS DA API ---
