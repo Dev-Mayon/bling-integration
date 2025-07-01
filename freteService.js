@@ -10,14 +10,12 @@ if (!process.env.FRENET_TOKEN) {
 /**
  * Calcula o preço e o prazo do frete usando a API da Frenet.
  * @param {object} dadosFrete Contém os dados para o cálculo.
- * @returns {Promise<object>} Um objeto com o valor e o prazo do frete.
+ * @returns {Promise<Array<object>>} Um array com todas as opções de frete disponíveis.
  */
 async function calcularFrete(dadosFrete) {
     console.log('[Frenet] Iniciando cálculo de frete.');
 
-    // Montamos o corpo da requisição conforme a documentação da Frenet
     const payload = {
-        // CEP de origem fixo. Se o seu cliente usar um diferente, altere aqui.
         SellerCEP: dadosFrete.cepOrigem.replace(/\D/g, ''),
         RecipientCEP: dadosFrete.cepDestino.replace(/\D/g, ''),
         ShipmentInvoiceValue: dadosFrete.valor,
@@ -35,41 +33,42 @@ async function calcularFrete(dadosFrete) {
     try {
         const url = "https://api.frenet.com.br/shipping/quote";
 
-        // Fazemos a chamada POST com os headers de autorização corretos
         const response = await axios.post(url, payload, {
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                // O token da Frenet é passado diretamente no header 'token'
                 'token': process.env.FRENET_TOKEN
             }
         });
 
-        // A Frenet retorna um array de "ShippingServiceArray"
+        // ✅ MUDANÇA PRINCIPAL AQUI
+        // Verificamos se a resposta contém o array de serviços
         const servicos = response.data.ShippingSevicesArray;
 
-        // Filtramos para pegar o PAC ("PAC")
-        const pacOption = servicos.find(service => service.ServiceDescription === "PAC");
+        if (servicos && servicos.length > 0) {
+            // Filtramos apenas os serviços que não deram erro
+            const opcoesValidas = servicos.filter(service => service.Error === false);
+            
+            // Mapeamos para um formato mais limpo que o nosso frontend vai usar
+            const opcoesFinais = opcoesValidas.map(service => ({
+                nome: service.ServiceDescription,
+                valor: parseFloat(service.ShippingPrice),
+                prazo: service.DeliveryTime
+            }));
 
-        if (pacOption && pacOption.Error === false) {
-            const freteFinal = {
-                // O valor vem como string, convertemos para número
-                valor: parseFloat(pacOption.ShippingPrice),
-                // O prazo vem em dias, já como string
-                prazo: pacOption.DeliveryTime
-            };
-            console.log('[Frenet] Frete PAC calculado com sucesso:', freteFinal);
-            return freteFinal;
+            console.log(`[Frenet] ${opcoesFinais.length} opções de frete calculadas com sucesso.`);
+            return opcoesFinais; // Retornamos o array completo de opções
         } else {
-            // Se o PAC não estiver disponível, ou der erro, usamos o fallback
-            throw new Error(pacOption ? pacOption.Msg : "Nenhuma opção PAC encontrada na resposta da Frenet.");
+            // Se a Frenet não retornar nenhuma opção
+            throw new Error("Nenhuma opção de frete encontrada na resposta da Frenet.");
         }
 
     } catch (error) {
         const errorMessage = error.response?.data?.message || error.message;
         console.error("[Frenet] Erro ao calcular frete:", errorMessage);
-        // Nosso plano B de sempre, para garantir que a venda não pare
-        return { valor: 35.00, prazo: "7" };
+        
+        // Como plano B, retornamos um array com uma única opção de fallback
+        return [{ nome: "Frete Padrão", valor: 35.00, prazo: "7" }];
     }
 }
 
