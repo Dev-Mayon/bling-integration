@@ -1,4 +1,4 @@
-// CÓDIGO FINAL COMPLETO PARA index.js (COM BANCO DE CUPONS E CORREÇÃO DE CORS)
+// CÓDIGO FINAL DEFINITIVO PARA index.js (COM CORREÇÃO DE CORS E CUPONS)
 
 require('dotenv').config();
 
@@ -23,23 +23,22 @@ const produtos = {
 
 // --- BANCO DE CUPONS PRÉ-APROVADOS ---
 const CUPONS_VALIDOS = {};
-// Gerando 20 cupons de R$ 10 de desconto (PROMO1 a PROMO20)
-for (let i = 1; i <= 20; i++) {
-    CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 10.00 };
-}
-// Gerando 20 cupons de R$ 20 de desconto (PROMO21 a PROMO40)
-for (let i = 21; i <= 40; i++) {
-    CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 20.00 };
-}
+for (let i = 1; i <= 20; i++) { CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 10.00 }; }
+for (let i = 21; i <= 40; i++) { CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 20.00 }; }
 
 app.use(express.json());
 
-// --- CORREÇÃO DE CORS (MAIS ROBUSTA) ---
-const dominiosPermitidos = ['https://www.maisvigor.com.br', 'https://maisvigor.com.br', 'https://www.tranquilium.com.br', 'https://tranquilium.com.br'];
+// --- ✅ CORREÇÃO DE CORS DEFINITIVA ---
+// Adicionamos todas as variações dos seus domínios (com e sem www)
+const dominiosPermitidos = [
+    'https://www.maisvigor.com.br', 
+    'https://maisvigor.com.br',
+    'https://www.tranquilium.com.br', 
+    'https://tranquilium.com.br'
+];
 
 const corsOptions = {
     origin: function (origin, callback) {
-        // Se a origem da requisição estiver na nossa lista, ou se for uma requisição sem origem (como do Postman), permite.
         if (!origin || dominiosPermitidos.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
