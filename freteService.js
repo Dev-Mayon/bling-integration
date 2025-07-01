@@ -41,15 +41,13 @@ async function calcularFrete(dadosFrete) {
             }
         });
 
-        // ✅ MUDANÇA PRINCIPAL AQUI
-        // Verificamos se a resposta contém o array de serviços
+        // ✅ CORREÇÃO APLICADA AQUI
+        // O nome correto da propriedade na resposta da Frenet é "ShippingSevicesArray" (com 'i' em vez de 'c').
         const servicos = response.data.ShippingSevicesArray;
 
         if (servicos && servicos.length > 0) {
-            // Filtramos apenas os serviços que não deram erro
             const opcoesValidas = servicos.filter(service => service.Error === false);
-            
-            // Mapeamos para um formato mais limpo que o nosso frontend vai usar
+
             const opcoesFinais = opcoesValidas.map(service => ({
                 nome: service.ServiceDescription,
                 valor: parseFloat(service.ShippingPrice),
@@ -57,18 +55,17 @@ async function calcularFrete(dadosFrete) {
             }));
 
             console.log(`[Frenet] ${opcoesFinais.length} opções de frete calculadas com sucesso.`);
-            return opcoesFinais; // Retornamos o array completo de opções
+            return opcoesFinais;
         } else {
-            // Se a Frenet não retornar nenhuma opção
             throw new Error("Nenhuma opção de frete encontrada na resposta da Frenet.");
         }
 
     } catch (error) {
-        const errorMessage = error.response?.data?.message || error.message;
+        const errorMessage = error.response?.data?.Message || error.message; // Ajustado para 'Message' com 'M' maiúsculo, que a Frenet também usa
         console.error("[Frenet] Erro ao calcular frete:", errorMessage);
-        
-        // Como plano B, retornamos um array com uma única opção de fallback
-        return [{ nome: "Frete Padrão", valor: 35.00, prazo: "7" }];
+
+        // Retorna um array vazio em caso de erro para o frontend tratar
+        return [];
     }
 }
 
