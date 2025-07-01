@@ -1,4 +1,4 @@
-// freteService.js (Versão Mais Robusta)
+// freteService.js (Versão Mais Robusta com Logs Detalhados)
 
 const { default: axios } = require('axios');
 
@@ -39,7 +39,7 @@ async function calcularFrete(dadosFrete) {
                 'Content-Type': 'application/json',
                 'token': process.env.FRENET_TOKEN
             },
-            timeout: 10000 // Adiciona um timeout de 10 segundos
+            timeout: 10000 // Adiciona um timeout de 10 segundos para evitar que a requisição fique "presa"
         });
 
         // Verificação defensiva da resposta
@@ -47,15 +47,15 @@ async function calcularFrete(dadosFrete) {
             console.error('[Frenet] Resposta da API inválida ou vazia.');
             return [];
         }
-
+        
         console.log('[Frenet] Resposta completa da API recebida.');
 
         // A API da Frenet tem um erro de digitação conhecido. Verificamos a propriedade correta.
-        const servicos = response.data.ShippingSevicesArray;
+        const servicos = response.data.ShippingSevicesArray; 
 
         if (Array.isArray(servicos) && servicos.length > 0) {
             const opcoesValidas = servicos.filter(service => service && service.Error === false);
-
+            
             const opcoesFinais = opcoesValidas.map(service => ({
                 nome: service.ServiceDescription,
                 valor: parseFloat(service.ShippingPrice),
@@ -74,12 +74,14 @@ async function calcularFrete(dadosFrete) {
         console.error("[Frenet] Ocorreu um erro CRÍTICO ao tentar calcular o frete.");
         // Log detalhado do erro para depuração
         if (error.response) {
+            // Se o erro veio da resposta da API (ex: 4xx, 5xx)
             console.error('[Frenet] Detalhes do Erro de Resposta da API:', JSON.stringify(error.response.data, null, 2));
         } else {
+            // Se foi um erro de rede ou outro problema
             console.error('[Frenet] Mensagem de Erro Geral:', error.message);
         }
-
-        return [];
+        
+        return []; // Retorna um array vazio para o frontend saber que falhou
     }
 }
 
