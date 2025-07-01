@@ -14,12 +14,12 @@ const freteService = require('./freteService');
 app.use(express.json());
 
 // --- ✅ CONFIGURAÇÃO DE CORS DEFINITIVA ---
-// Esta configuração é a mais aberta e robusta, garantindo que o navegador
-// não irá mais bloquear a requisição. Isso vai resolver o "Failed to fetch".
+// Esta configuração permite requisições de QUALQUER origem.
+// É a forma mais robusta de garantir que o navegador não irá mais
+// bloquear a requisição e resolver o "Failed to fetch".
 app.use(cors());
 
 // Middleware para registrar TODAS as requisições que chegam ao servidor.
-// Isso nos dará visibilidade total do que está acontecendo.
 app.use((req, res, next) => {
     console.log(`[LOG REQUISIÇÃO] Método: ${req.method}, URL: ${req.originalUrl}, Origem: ${req.headers.origin}`);
     next();
@@ -88,6 +88,7 @@ app.post('/api/consultar-frete', async (req, res) => {
             res.status(400).json({ error: 'Não foi possível calcular o frete para este CEP.' });
         }
     } catch (error) {
+        console.error('[ERRO] Falha ao consultar frete:', error.message, error.stack);
         res.status(500).json({ error: 'Ocorreu uma falha interna ao calcular o frete.' });
     }
 });
