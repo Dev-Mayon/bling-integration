@@ -1,4 +1,4 @@
-// CÓDIGO FINAL DEFINITIVO PARA index.js (COM CORREÇÃO DE CORS E CUPONS)
+// CÓDIGO FINAL, COMPLETO E CORRIGIDO PARA index.js
 
 require('dotenv').config();
 
@@ -23,13 +23,18 @@ const produtos = {
 
 // --- BANCO DE CUPONS PRÉ-APROVADOS ---
 const CUPONS_VALIDOS = {};
-for (let i = 1; i <= 20; i++) { CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 10.00 }; }
-for (let i = 21; i <= 40; i++) { CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 20.00 }; }
+// Gerando 20 cupons de R$ 10 de desconto (PROMO1 a PROMO20)
+for (let i = 1; i <= 20; i++) {
+    CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 10.00 };
+}
+// Gerando 20 cupons de R$ 20 de desconto (PROMO21 a PROMO40)
+for (let i = 21; i <= 40; i++) {
+    CUPONS_VALIDOS[`PROMO${i}`] = { tipo: 'fixo', valor: 20.00 };
+}
 
 app.use(express.json());
 
-// --- ✅ CORREÇÃO DE CORS DEFINITIVA ---
-// Adicionamos todas as variações dos seus domínios (com e sem www)
+// --- ✅ CONFIGURAÇÃO DE CORS CORRETA E DEFINITIVA ---
 const dominiosPermitidos = [
     'https://www.maisvigor.com.br', 
     'https://maisvigor.com.br',
@@ -104,33 +109,25 @@ app.post('/api/consultar-frete', async (req, res) => {
 app.post('/api/validar-cupom', (req, res) => {
     console.log('--- REQUISIÇÃO RECEBIDA EM /api/validar-cupom ---');
     let { sku, codigoCupom } = req.body;
-
     if (!sku || !codigoCupom) {
         return res.status(400).json({ success: false, mensagem: 'SKU do produto e código do cupom são obrigatórios.' });
     }
-    
     if (sku) {
         sku = sku.trim().toUpperCase();
         if (!sku.startsWith('+')) { sku = '+' + sku; }
     }
     codigoCupom = codigoCupom.trim().toUpperCase();
-
     const produto = produtos[sku];
     const cupom = CUPONS_VALIDOS[codigoCupom];
-
     if (!produto) {
         return res.status(404).json({ success: false, mensagem: 'Produto não encontrado.' });
     }
     if (!cupom) {
         return res.status(200).json({ success: false, mensagem: 'Cupom inválido ou expirado.' });
     }
-
     let desconto = cupom.valor;
     desconto = Math.min(desconto, produto.preco);
     const precoComDesconto = produto.preco - desconto;
-
-    console.log(`[Cupom] Cupom '${codigoCupom}' validado. Desconto: R$ ${desconto.toFixed(2)}. Preço final: R$ ${precoComDesconto.toFixed(2)}`);
-
     res.status(200).json({
         success: true,
         mensagem: `Cupom aplicado com sucesso!`,
@@ -145,32 +142,24 @@ app.post('/api/criar-checkout', async (req, res) => {
     console.log('--- REQUISIÇÃO RECEBIDA EM /api/criar-checkout ---');
     try {
         let { sku, cep, valorFrete, precoComDesconto } = req.body;
-
         if (sku) {
             sku = sku.trim().toUpperCase();
             if (!sku.startsWith('+')) { sku = '+' + sku; }
         }
-
         if (!sku || !cep || !valorFrete) {
             return res.status(400).json({ error: 'SKU, CEP e valor do frete são obrigatórios.' });
         }
-
         const produto = produtos[sku];
         if (!produto) {
             return res.status(404).json({ error: 'Produto não encontrado.' });
         }
-
         const precoFinalDoProduto = precoComDesconto ? parseFloat(precoComDesconto) : produto.preco;
-        console.log(`[Checkout] Preço final do produto definido como: R$ ${precoFinalDoProduto}`);
-
         const itensParaCheckout = [
             { id: produto.sku_bling, title: produto.nome, quantity: 1, currency_id: 'BRL', unit_price: precoFinalDoProduto },
             { id: 'frete', title: "Frete", quantity: 1, currency_id: 'BRL', unit_price: parseFloat(valorFrete) }
         ];
-
         const preferencia = await mercadoPagoService.criarPreferenciaDePagamento(itensParaCheckout);
         res.status(200).json({ preferenceId: preferencia.id, init_point: preferencia.init_point });
-
     } catch (error) {
         console.error('[ERRO] Falha ao criar checkout:', error.message, error.stack);
         res.status(500).json({ error: 'Erro interno do servidor.' });
