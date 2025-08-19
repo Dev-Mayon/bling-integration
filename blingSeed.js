@@ -1,7 +1,5 @@
-// blingSeed.js
-// Semear tokens do Bling no Redis usando o BLING_REFRESH_TOKEN das envs
+// blingSeed.js (versão C: https.request + SNI + TLS1.2, sem resolver IP manualmente)
 const https = require('https');
-const dns = require('dns');
 const { createClient } = require('redis');
 
 // === Redis Client (Redis Cloud usa TLS) ===
@@ -41,60 +39,49 @@ async function saveTokens({ access_token, refresh_token, expires_in }) {
     console.log('[BLING] Tokens salvos no Redis.');
 }
 
-// POST x-www-form-urlencoded via https.request (TLS 1.2+, SNI, IPv4)
 function postFormTLS({ hostname, path, form }) {
     return new Promise((resolve, reject) => {
-        // força IPv4 para evitar rotas/proxies que causam SSL errado
-        dns.lookup(hostname, { family: 4 }, (lookupErr, address) => {
-            if (lookupErr) return reject(lookupErr);
+        const data = new URLSearchParams(form).toString();
 
-            const data = typeof form === 'string' ? form : new URLSearchParams(form).toString();
+        const options = {
+            hostname,              // usa o hostname (SNI automático)
+            port: 443,
+            path,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Length': Buffer.byteLength(data),
+            },
+            minVersion: 'TLSv1.2',
+            rejectUnauthorized: true,
+        };
 
-            const options = {
-                host: address,             // IP v4 resolvido
-                servername: hostname,      // SNI correto
-                port: 443,
-                path,
-                method: 'POST',
-                headers: {
-                    'Host': hostname, // preserva o host original
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Content-Length': Buffer.byteLength(data),
-                },
-                // Garantir TLS >= 1.2
-                minVersion: 'TLSv1.2',
-                rejectUnauthorized: true,
-            };
-
-            const req = https.request(options, (res) => {
-                let body = '';
-                res.setEncoding('utf8');
-                res.on('data', (chunk) => (body += chunk));
-                res.on('end', () => {
-                    const status = res.statusCode || 0;
-                    if (status < 200 || status >= 300) {
-                        return reject(new Error(`Bling token error (status ${status}): ${body}`));
-                    }
-                    try {
-                        const json = JSON.parse(body);
-                        resolve(json);
-                    } catch {
-                        resolve({ raw: body });
-                    }
-                });
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.setEncoding('utf8');
+            res.on('data', (chunk) => (body += chunk));
+            res.on('end', () => {
+                const status = res.statusCode || 0;
+                if (status < 200 || status >= 300) {
+                    return reject(new Error(`Bling token error (status ${status}): ${body}`));
+                }
+                try {
+                    resolve(JSON.parse(body));
+                } catch {
+                    resolve({ raw: body });
+                }
             });
-
-            req.on('error', (err) => reject(err));
-            req.write(data);
-            req.end();
         });
+
+        req.on('error', (err) => reject(err));
+        req.write(data);
+        req.end();
     });
 }
 
 async function runSeedFromEnv() {
     await connectRedisOnce();
 
-    // Aceita CLIENT_ID ou CLIENTE_ID (vi os dois no seu env)
     const clientId = process.env.CLIENT_ID || process.env.CLIENTE_ID;
     const clientSecret = process.env.CLIENT_SECRET;
     const refreshToken = process.env.BLING_REFRESH_TOKEN;
@@ -105,7 +92,7 @@ async function runSeedFromEnv() {
 
     console.log('[BLING] Gerando novo access_token via refresh_token das env vars...');
 
-    const hostname = 'bling.com.br';
+    const hostname = 'www.bling.com.br';      // <- voltar para www
     const path = '/Api/v3/oauth/token';
     const form = {
         grant_type: 'refresh_token',
@@ -116,7 +103,6 @@ async function runSeedFromEnv() {
 
     try {
         const data = await postFormTLS({ hostname, path, form });
-
         const access_token = data?.access_token;
         const new_refresh = data?.refresh_token || refreshToken;
         const expires_in = data?.expires_in;
@@ -138,9 +124,6 @@ async function runSeedFromEnv() {
     }
 }
 
-module.exports = {
-    runSeedFromEnv,
-    KEYS,
-};
+module.exports = { runSeedFromEnv, KEYS };
 
 
