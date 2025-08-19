@@ -10,18 +10,32 @@ const mercadoPagoService = require('./mercadoPagoService');
 const freteService = require('./freteService');
 const { runSeedFromEnv } = require('./blingSeed');
 
-// === Redis (Redis Cloud usa TLS) ===
+// === Redis (autodetecta TLS pelo esquema da URL) ===
 const { createClient } = require('redis');
-const REDIS_URL = process.env.REDIS_URL;
+const REDIS_URL = process.env.REDIS_URL || '';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 
+const useTls = REDIS_URL.startsWith('rediss://'); // TLS só se a URL pedir
 const redis = createClient({
     url: REDIS_URL,
-    socket: { tls: true },
+    socket: { tls: useTls },
 });
 
 async function connectRedisOnce() {
-    if (!redis.isOpen) await redis.connect();
+    if (!REDIS_URL) {
+        console.warn('[REDIS] REDIS_URL não definido; usando .env como fallback quando aplicável.');
+        return;
+    }
+    if (!redis.isOpen) {
+        try {
+            console.log(`[REDIS] Conectando: ${REDIS_URL} | TLS=${useTls}`);
+            await redis.connect();
+            console.log('[REDIS] Conectado.');
+        } catch (e) {
+            console.error('[REDIS] Falha ao conectar:', e?.code || e?.message, e);
+            throw e;
+        }
+    }
 }
 
 const KEYS = {
@@ -40,14 +54,15 @@ app.use((req, _res, next) => {
     next();
 });
 
-// --- HEALTHCHECK ---
+// Raiz e health
+app.get('/', (_req, res) => res.send('OK'));
 app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
 // --- DADOS DE PRODUTOS E CUPONS ---
 const produtos = {
     '+V1': { nome: 'Mais Vigor', sku_bling: '+V1', preco: 99.00, peso_kg: 0.100, comprimento_cm: 6.00, altura_cm: 11.00, largura_cm: 10.00 },
     '+V3': { nome: 'Kit 3 Unidades Mais Vigor', sku_bling: '+V3', preco: 229.00, peso_kg: 0.300, comprimento_cm: 25, altura_cm: 20, largura_cm: 15 },
-    '+V5': { nome: 'Kit 5 Unidades Mais Vigor', sku_bling: '+V5', preco: 349.00, peso_kg: 0.500, comprimento_cm: 30, altura_cm: 25, largura_cm: 20.00 },
+    '+V5': { nome: 'Kit 5 Unidades Mais Vigor', sku_bling: '+V5', preco: 349.00, peso_kg: 0.500, comprimento_cm: 30.00, altura_cm: 25.00, largura_cm: 20.00 },
     '+TQ1': { nome: 'Tranquillium 1', sku_bling: 'Traq1', preco: 69.00, peso_kg: 0.100, comprimento_cm: 20.00, altura_cm: 15.00, largura_cm: 10.00 },
     '+TQ3': { nome: 'Tranquillium 3', sku_bling: 'Traq3', preco: 159.00, peso_kg: 0.300, comprimento_cm: 25.00, altura_cm: 20.00, largura_cm: 15.00 },
     '+TQ5': { nome: 'Tranquillium 5', sku_bling: 'Traq5', preco: 239.00, peso_kg: 0.500, comprimento_cm: 30.00, altura_cm: 25.00, largura_cm: 20.00 },
@@ -220,6 +235,11 @@ app.post('/admin/push-bling-tokens', async (req, res) => {
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 3000;
 const startServer = async () => {
+    try {
+        await connectRedisOnce(); // conecta já na subida
+    } catch (e) {
+        // segue vivo, mas rotas que usam Redis podem falhar até conectar
+    }
     try {
         await blingService.inicializarServicoBling();
     } catch (error) {
