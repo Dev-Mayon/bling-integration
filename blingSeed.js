@@ -7,7 +7,7 @@ if (!REDIS_URL) throw new Error('REDIS_URL não definido');
 
 const redis = createClient({
     url: REDIS_URL,
-    socket: { tls: true }, // Redis Cloud usa TLS
+    socket: { tls: true },
 });
 
 const KEYS = {
@@ -38,12 +38,13 @@ async function saveTokens({ access_token, refresh_token, expires_in }) {
 async function runSeedFromEnv() {
     await connectRedisOnce();
 
-    const clientId = process.env.CLIENT_ID || process.env.CLIENTE_ID || process.env.CLIENTE_ID; // cobre ambos
+    // aceita CLIENT_ID ou CLIENTE_ID (vi ambas nas suas envs)
+    const clientId = process.env.CLIENT_ID || process.env.CLIENTE_ID;
     const clientSecret = process.env.CLIENT_SECRET;
     const refreshToken = process.env.BLING_REFRESH_TOKEN;
 
     if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error('CLIENT_ID/CLIENT_SECRET/BLING_REFRESH_TOKEN ausentes nas env vars.');
+        throw new Error('CLIENT_ID/CLIENTE_ID, CLIENT_SECRET ou BLING_REFRESH_TOKEN ausentes nas env vars.');
     }
 
     console.log('[BLING] Gerando novo access_token via refresh_token das env vars...');
@@ -55,26 +56,38 @@ async function runSeedFromEnv() {
         client_secret: clientSecret,
     });
 
-    const { data } = await axios.post(tokenUrl, form.toString(), {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        timeout: 20000,
-    });
+    try {
+        const { data } = await axios.post(tokenUrl, form.toString(), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            timeout: 20000,
+        });
 
-    const { access_token, refresh_token, expires_in } = data || {};
-    if (!access_token) {
-        throw new Error('Resposta sem access_token. Verifique se o refresh_token ainda é válido.');
+        const { access_token, refresh_token, expires_in } = data || {};
+        if (!access_token) {
+            throw new Error('Resposta sem access_token. Verifique refresh_token.');
+        }
+
+        await saveTokens({
+            access_token,
+            refresh_token: refresh_token || refreshToken,
+            expires_in,
+        });
+
+        return { ok: true, provider: 'bling', saved: ['access_token', 'refresh_token', 'expires_at'] };
+    } catch (err) {
+        // LOG detalhado
+        const status = err.response?.status;
+        const body = err.response?.data;
+        console.error('[SEED][BLING] Falha ao trocar refresh_token', {
+            status, body, message: err.message,
+        });
+        // Propaga para a rota devolver o detalhe
+        throw new Error(`Bling token error (status ${status}): ${JSON.stringify(body)}`);
     }
-
-    await saveTokens({
-        access_token,
-        refresh_token: refresh_token || refreshToken,
-        expires_in,
-    });
-
-    return { ok: true, saved: ['access_token', 'refresh_token', 'expires_at'] };
 }
 
 module.exports = {
     runSeedFromEnv,
     KEYS,
 };
+
