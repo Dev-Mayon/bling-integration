@@ -1,7 +1,7 @@
 // blingSeed.js
 // Semear tokens do Bling no Redis usando o BLING_REFRESH_TOKEN das envs
-
 const https = require('https');
+const dns = require('dns');
 const { createClient } = require('redis');
 
 // === Redis Client (Redis Cloud usa TLS) ===
@@ -20,14 +20,12 @@ const KEYS = {
     expires: 'bling:expires_at',
 };
 
-// Conecta apenas 1x
 async function connectRedisOnce() {
     if (!redis.isOpen) {
         await redis.connect();
     }
 }
 
-// Salva tokens e TTL do access_token
 async function saveTokens({ access_token, refresh_token, expires_in }) {
     const expiresAt = Math.floor(Date.now() / 1000) + (expires_in || 3600);
 
@@ -38,14 +36,61 @@ async function saveTokens({ access_token, refresh_token, expires_in }) {
     });
 
     if (expires_in) {
-        // garante que o access_token expira pouco antes do tempo real
         await redis.expire(KEYS.access, Math.max(60, expires_in - 60));
     }
-
     console.log('[BLING] Tokens salvos no Redis.');
 }
 
-// === Seed a partir das variáveis de ambiente ===
+// POST x-www-form-urlencoded via https.request (TLS 1.2+, SNI, IPv4)
+function postFormTLS({ hostname, path, form }) {
+    return new Promise((resolve, reject) => {
+        // força IPv4 para evitar rotas/proxies que causam SSL errado
+        dns.lookup(hostname, { family: 4 }, (lookupErr, address) => {
+            if (lookupErr) return reject(lookupErr);
+
+            const data = typeof form === 'string' ? form : new URLSearchParams(form).toString();
+
+            const options = {
+                host: address,             // IP v4 resolvido
+                servername: hostname,      // SNI correto
+                port: 443,
+                path,
+                method: 'POST',
+                headers: {
+                    'Host': hostname, // preserva o host original
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Length': Buffer.byteLength(data),
+                },
+                // Garantir TLS >= 1.2
+                minVersion: 'TLSv1.2',
+                rejectUnauthorized: true,
+            };
+
+            const req = https.request(options, (res) => {
+                let body = '';
+                res.setEncoding('utf8');
+                res.on('data', (chunk) => (body += chunk));
+                res.on('end', () => {
+                    const status = res.statusCode || 0;
+                    if (status < 200 || status >= 300) {
+                        return reject(new Error(`Bling token error (status ${status}): ${body}`));
+                    }
+                    try {
+                        const json = JSON.parse(body);
+                        resolve(json);
+                    } catch {
+                        resolve({ raw: body });
+                    }
+                });
+            });
+
+            req.on('error', (err) => reject(err));
+            req.write(data);
+            req.end();
+        });
+    });
+}
+
 async function runSeedFromEnv() {
     await connectRedisOnce();
 
@@ -60,46 +105,29 @@ async function runSeedFromEnv() {
 
     console.log('[BLING] Gerando novo access_token via refresh_token das env vars...');
 
-    // Evita possíveis redirecionamentos/handshakes problemáticos
-    const tokenUrl = 'https://bling.com.br/Api/v3/oauth/token';
-
-    // Body x-www-form-urlencoded
-    const form = new URLSearchParams({
+    const hostname = 'bling.com.br';
+    const path = '/Api/v3/oauth/token';
+    const form = {
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
         client_id: clientId,
         client_secret: clientSecret,
-    });
-
-    // Força TLS >= 1.2
-    const agent = new https.Agent({ keepAlive: false, minVersion: 'TLSv1.2' });
+    };
 
     try {
-        // usa fetch nativo (Node 18+) + agent TLS
-        const resp = await fetch(tokenUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: form,
-            agent,
-            redirect: 'follow',
-        });
+        const data = await postFormTLS({ hostname, path, form });
 
-        const text = await resp.text();
-        let data;
-        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        const access_token = data?.access_token;
+        const new_refresh = data?.refresh_token || refreshToken;
+        const expires_in = data?.expires_in;
 
-        if (!resp.ok) {
-            throw new Error(`Bling token error (status ${resp.status}): ${text}`);
-        }
-
-        const { access_token, refresh_token, expires_in } = data || {};
         if (!access_token) {
-            throw new Error(`Resposta sem access_token: ${text}`);
+            throw new Error(`Resposta sem access_token: ${JSON.stringify(data)}`);
         }
 
         await saveTokens({
             access_token,
-            refresh_token: refresh_token || refreshToken,
+            refresh_token: new_refresh,
             expires_in,
         });
 
