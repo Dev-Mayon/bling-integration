@@ -8,17 +8,40 @@ const app = express();
 const blingService = require('./blingService');
 const mercadoPagoService = require('./mercadoPagoService');
 const freteService = require('./freteService');
-const { runSeedFromEnv } = require('./blingSeed'); // NOVO
+const { runSeedFromEnv } = require('./blingSeed');
+
+// === Redis (Redis Cloud usa TLS) ===
+const { createClient } = require('redis');
+const REDIS_URL = process.env.REDIS_URL;
+const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
+
+const redis = createClient({
+    url: REDIS_URL,
+    socket: { tls: true },
+});
+
+async function connectRedisOnce() {
+    if (!redis.isOpen) await redis.connect();
+}
+
+const KEYS = {
+    access: 'bling:access_token',
+    refresh: 'bling:refresh_token',
+    expires: 'bling:expires_at',
+};
 
 // --- CONFIGURAÇÃO INICIAL ---
 app.use(express.json());
 app.use(cors());
 
 // Log de todas as requisições
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
     console.log(`[LOG REQUISIÇÃO] Método: ${req.method}, URL: ${req.originalUrl}, Origem: ${req.headers.origin}`);
     next();
 });
+
+// --- HEALTHCHECK ---
+app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
 // --- DADOS DE PRODUTOS E CUPONS ---
 const produtos = {
@@ -145,11 +168,11 @@ app.post('/api/criar-checkout', async (req, res) => {
     }
 });
 
-// --- 🔐 ROTA TEMPORÁRIA PARA SEMEAR TOKENS DO BLING A PARTIR DAS ENVs ---
+// --- 🔐 ROTA TEMPORÁRIA: semear tokens a partir das ENVs ---
 app.post('/admin/seed-bling-from-env', async (req, res) => {
     try {
         const secret = req.headers['x-admin-secret'];
-        if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+        if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
             return res.status(401).json({ error: 'unauthorized' });
         }
         const result = await runSeedFromEnv();
@@ -157,6 +180,40 @@ app.post('/admin/seed-bling-from-env', async (req, res) => {
     } catch (e) {
         console.error('[SEED] Erro:', e);
         res.status(500).json({ error: e.message });
+    }
+});
+
+// --- 🔐 ROTA ADMIN: grava tokens recebidos no Redis ---
+app.post('/admin/push-bling-tokens', async (req, res) => {
+    try {
+        const secret = req.headers['x-admin-secret'];
+        if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
+            return res.status(401).json({ ok: false, error: 'unauthorized' });
+        }
+
+        const { access_token, refresh_token, expires_in } = req.body || {};
+        const exp = Number(expires_in);
+        if (!access_token || !refresh_token || !Number.isFinite(exp) || exp <= 0) {
+            return res.status(400).json({ ok: false, error: 'invalid_body' });
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+        const expiresAt = now + exp;
+
+        await connectRedisOnce();
+        await redis.mSet({
+            [KEYS.access]: access_token,
+            [KEYS.refresh]: refresh_token,
+            [KEYS.expires]: String(expiresAt),
+        });
+        // TTL do access_token com respiro de 60s para renovar antes do fim
+        await redis.expire(KEYS.access, Math.max(60, exp - 60));
+
+        console.log('[ADMIN] Tokens do Bling gravados no Redis.');
+        return res.json({ ok: true, saved: [KEYS.access, KEYS.refresh, KEYS.expires] });
+    } catch (e) {
+        console.error('[admin/push-bling-tokens] erro', e);
+        return res.status(500).json({ ok: false, error: 'internal' });
     }
 });
 
